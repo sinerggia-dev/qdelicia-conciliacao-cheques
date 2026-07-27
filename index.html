@@ -1111,6 +1111,7 @@ function confrontoChequeCellHtml(r){
 }
 
 var COLUMNS = {
+  id:          { label:'ID', width:70, cls:'num', cellCls:'num', render: function(r){ return r.id; } },
   dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
   numero:      { label:'Cheque (Digitado)', width:150, render: function(r){ return r.numero; } },
   favorecido:  { label:'Favorecido', width:240, render: function(r){ return r.favorecido; } },
@@ -1134,7 +1135,7 @@ var COLUMNS = {
   numeroImpresso: { label:'Cheque N° (Impresso)', width:150, render: function(r){ return r.numeroImpresso || ''; } },
   talao:        { label:'Talão', width:220, titleAttr: function(r){ return (r.talao||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.talao || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','confronto','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
+var DEFAULT_COLUMN_ORDER = ['id','dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','confronto','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
 
 function loadColumnOrder(){
   try {
