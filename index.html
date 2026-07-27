@@ -78,7 +78,17 @@
   .user-chip svg{width:15px;height:15px;flex:none;color:var(--ink-muted);}
 
   .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;flex:none;}
-  .filter-field{flex:0 0 auto;width:150px;}
+  .filter-field{flex:0 0 auto;width:150px;position:relative;}
+  .filter-move{
+    position:absolute;bottom:-9px;right:8px;display:flex;gap:2px;
+    opacity:0;transition:opacity .12s ease;z-index:6;
+  }
+  .filter-field:hover .filter-move{opacity:1;}
+  .filter-move-btn{
+    width:17px;height:17px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-strong);
+    color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;padding:0;line-height:1;
+  }
+  .filter-move-btn:hover{background:var(--surface);color:var(--ink);border-color:var(--chart);}
   .filter-field label{
     display:block;font-size:10px;color:var(--ink-muted);
     text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;
@@ -279,19 +289,19 @@
       <div class="kpi"><div class="v" id="kpiHoje">0</div><div class="l">Enviados hoje</div></div>
     </div>
     <div class="filters">
-      <div class="filter-field">
+      <div class="filter-field" data-filter-key="favorecido">
         <label>Favorecido</label>
         <input type="text" id="f_busca" name="qc_busca_favorecido" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
       </div>
-      <div class="filter-field">
+      <div class="filter-field" data-filter-key="numero">
         <label>Cheque</label>
         <input type="text" id="f_numero" name="qc_busca_numero" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
       </div>
-      <div class="filter-field">
+      <div class="filter-field" data-filter-key="pagamento">
         <label>Pagamento</label>
         <input type="date" id="f_de">
       </div>
-      <div class="filter-field">
+      <div class="filter-field" data-filter-key="chequeDe">
         <label>Cheque De:</label>
         <select id="f_chequeDe">
           <option value="">Todos</option>
@@ -299,7 +309,7 @@
           <option value="Genivaldo">Genivaldo</option>
         </select>
       </div>
-      <div class="filter-field">
+      <div class="filter-field" data-filter-key="mesAno">
         <label>Mês/Ano</label>
         <select id="f_mesAno">
           <option value="">Todos</option>
@@ -1294,6 +1304,67 @@ document.getElementById('semAcessoSairBtn').addEventListener('click', sair);
 document.getElementById('loginBtn').addEventListener('click', entrar);
 document.getElementById('logoutBtn').addEventListener('click', sair);
 
+var FILTER_KEYS = ['favorecido','numero','pagamento','chequeDe','mesAno'];
+function loadFilterOrder(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_filter_order_v1'));
+    if (Array.isArray(saved) && saved.every(function(k){ return FILTER_KEYS.indexOf(k) !== -1; })){
+      FILTER_KEYS.forEach(function(k){ if (saved.indexOf(k) === -1) saved.push(k); });
+      return saved;
+    }
+  } catch(e){}
+  return FILTER_KEYS.slice();
+}
+function saveFilterOrder(order){ try{ localStorage.setItem('qc_filter_order_v1', JSON.stringify(order)); }catch(e){} }
+var filterOrder = loadFilterOrder();
+
+function applyFilterOrder(){
+  var container = document.querySelector('.filters');
+  filterOrder.forEach(function(key){
+    var el = container.querySelector('[data-filter-key="'+key+'"]');
+    if (el) container.appendChild(el);
+  });
+}
+
+function moverFiltro(key, delta){
+  pedirSenha('Digite a senha para mover este filtro:', function(ok){
+    if (!ok) return;
+    var pos = filterOrder.indexOf(key);
+    var novaPos = pos + delta;
+    if (novaPos < 0 || novaPos >= filterOrder.length) return;
+    var vizinho = filterOrder[novaPos];
+    filterOrder[pos] = vizinho;
+    filterOrder[novaPos] = key;
+    saveFilterOrder(filterOrder);
+    applyFilterOrder();
+  });
+}
+
+function addFilterMoveButtons(){
+  document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(wrap){
+    var key = wrap.getAttribute('data-filter-key');
+    var moveWrap = document.createElement('div');
+    moveWrap.className = 'filter-move';
+    var leftBtn = document.createElement('button');
+    leftBtn.type = 'button';
+    leftBtn.className = 'filter-move-btn';
+    leftBtn.title = 'Mover uma posição para a esquerda';
+    leftBtn.textContent = '◀';
+    var rightBtn = document.createElement('button');
+    rightBtn.type = 'button';
+    rightBtn.className = 'filter-move-btn';
+    rightBtn.title = 'Mover uma posição para a direita';
+    rightBtn.textContent = '▶';
+    leftBtn.addEventListener('click', function(ev){ ev.stopPropagation(); moverFiltro(key, -1); });
+    rightBtn.addEventListener('click', function(ev){ ev.stopPropagation(); moverFiltro(key, 1); });
+    moveWrap.appendChild(leftBtn);
+    moveWrap.appendChild(rightBtn);
+    wrap.appendChild(moveWrap);
+  });
+}
+
+applyFilterOrder();
+addFilterMoveButtons();
 renderTableHead();
 initAuth();
 </script>
