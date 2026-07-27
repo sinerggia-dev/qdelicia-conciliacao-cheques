@@ -252,16 +252,12 @@
 
   <div class="filters">
     <div class="filter-field">
-      <label>Buscar (favorecido ou número)</label>
-      <input type="text" id="f_busca" placeholder="Digite para filtrar...">
+      <label>Favorecido</label>
+      <input type="text" id="f_busca" placeholder="Digite para filtrar..." autocomplete="off">
     </div>
     <div class="filter-field">
-      <label>Data de envio (de)</label>
+      <label>Pagamento</label>
       <input type="date" id="f_de">
-    </div>
-    <div class="filter-field">
-      <label>Data de envio (até)</label>
-      <input type="date" id="f_ate">
     </div>
   </div>
 
@@ -836,11 +832,9 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
 function filtrados(){
   var busca = (document.getElementById('f_busca').value || '').trim().toLowerCase();
   var de = document.getElementById('f_de').value;
-  var ate = document.getElementById('f_ate').value;
   return DATA.filter(function(r){
     if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1 && r.numero.toLowerCase().indexOf(busca) === -1) return false;
     if (de && r.dataEnvio && r.dataEnvio < de) return false;
-    if (ate && r.dataEnvio && r.dataEnvio > ate) return false;
     return true;
   });
 }
@@ -909,11 +903,9 @@ function render(){
 
 document.getElementById('f_busca').addEventListener('input', render);
 document.getElementById('f_de').addEventListener('change', render);
-document.getElementById('f_ate').addEventListener('change', render);
 document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_busca').value = '';
   document.getElementById('f_de').value = '';
-  document.getElementById('f_ate').value = '';
   render();
 });
 
