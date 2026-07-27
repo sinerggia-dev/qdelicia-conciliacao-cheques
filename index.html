@@ -149,8 +149,8 @@
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
   .entry-panel form{padding:16px;}
-  .entry-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-  @media (max-width:760px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
+  .entry-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  @media (max-width:900px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
   .efield{display:flex;flex-direction:column;gap:5px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
   .efield label .req{color:var(--critical);}
@@ -253,7 +253,7 @@
   <div class="filters">
     <div class="filter-field">
       <label>Favorecido</label>
-      <input type="text" id="f_busca" placeholder="Digite para filtrar..." autocomplete="off">
+      <input type="text" id="f_busca" name="qc_busca_favorecido" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
     </div>
     <div class="filter-field">
       <label>Pagamento</label>
@@ -298,7 +298,7 @@
           <label>Número do Cheque <span class="req">*</span></label>
           <input type="text" id="nf_numero" placeholder="Ex.: 000123" required>
         </div>
-        <div class="efield" style="grid-column:span 2;">
+        <div class="efield">
           <label>Nome do Favorecido <span class="req">*</span></label>
           <input type="text" id="nf_favorecido" placeholder="Ex.: João da Silva" required>
         </div>
@@ -901,8 +901,10 @@ function render(){
   document.getElementById('kpiMedio').textContent = brl(rows.length ? totalValor/rows.length : 0);
 }
 
+document.getElementById('f_busca').value = '';
 document.getElementById('f_busca').addEventListener('input', render);
 document.getElementById('f_de').addEventListener('change', render);
+setTimeout(function(){ document.getElementById('f_busca').value = ''; }, 400);
 document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_busca').value = '';
   document.getElementById('f_de').value = '';
