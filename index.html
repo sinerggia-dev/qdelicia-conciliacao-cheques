@@ -256,6 +256,10 @@
       <input type="text" id="f_busca" name="qc_busca_favorecido" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
     </div>
     <div class="filter-field">
+      <label>Número do Cheque</label>
+      <input type="text" id="f_numero" name="qc_busca_numero" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+    </div>
+    <div class="filter-field">
       <label>Pagamento</label>
       <input type="date" id="f_de">
     </div>
@@ -831,9 +835,11 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
 
 function filtrados(){
   var busca = (document.getElementById('f_busca').value || '').trim().toLowerCase();
+  var buscaNumero = (document.getElementById('f_numero').value || '').trim().toLowerCase();
   var de = document.getElementById('f_de').value;
   return DATA.filter(function(r){
-    if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1 && r.numero.toLowerCase().indexOf(busca) === -1) return false;
+    if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1) return false;
+    if (buscaNumero && r.numero.toLowerCase().indexOf(buscaNumero) === -1) return false;
     if (de && r.dataEnvio && r.dataEnvio < de) return false;
     return true;
   });
@@ -902,11 +908,17 @@ function render(){
 }
 
 document.getElementById('f_busca').value = '';
+document.getElementById('f_numero').value = '';
 document.getElementById('f_busca').addEventListener('input', render);
+document.getElementById('f_numero').addEventListener('input', render);
 document.getElementById('f_de').addEventListener('change', render);
-setTimeout(function(){ document.getElementById('f_busca').value = ''; }, 400);
+setTimeout(function(){
+  document.getElementById('f_busca').value = '';
+  document.getElementById('f_numero').value = '';
+}, 400);
 document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_busca').value = '';
+  document.getElementById('f_numero').value = '';
   document.getElementById('f_de').value = '';
   render();
 });
