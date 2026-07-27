@@ -595,7 +595,8 @@ function graphRowToRow(v, rowIndex){
     clienteDesde: v[15] || '',
     endereco: v[16] || '',
     telefone: v[17] || '',
-    ouvidoria: v[18] || ''
+    ouvidoria: v[18] || '',
+    serie: v[19] || ''
   };
 }
 
@@ -1046,9 +1047,10 @@ var COLUMNS = {
   clienteDesde: { label:'Cliente Desde', width:110, render: function(r){ return r.clienteDesde || ''; } },
   endereco:     { label:'Endereço', width:220, titleAttr: function(r){ return (r.endereco||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.endereco || ''; } },
   telefone:     { label:'Telefone', width:120, render: function(r){ return r.telefone || ''; } },
-  ouvidoria:    { label:'Ouvidoria', width:130, render: function(r){ return r.ouvidoria || ''; } }
+  ouvidoria:    { label:'Ouvidoria', width:130, render: function(r){ return r.ouvidoria || ''; } },
+  serie:        { label:'Série', width:90, render: function(r){ return r.serie || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
 
 function loadColumnOrder(){
   try {
