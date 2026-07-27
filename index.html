@@ -1169,14 +1169,18 @@ function renderTableHead(){
 
     var resizer = document.createElement('div');
     resizer.className = 'col-resizer';
+    resizer.draggable = false;
     resizer.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    resizer.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
     th.appendChild(resizer);
 
     var colRemoveBtn = document.createElement('button');
     colRemoveBtn.type = 'button';
     colRemoveBtn.className = 'col-remove';
+    colRemoveBtn.draggable = false;
     colRemoveBtn.title = 'Remover esta coluna da tabela';
     colRemoveBtn.textContent = '×';
+    colRemoveBtn.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
     colRemoveBtn.addEventListener('click', function(ev){
       ev.stopPropagation();
       pedirSenha('Digite a senha para remover esta coluna da tabela:', function(ok){
