@@ -142,6 +142,24 @@
     cursor:col-resize;user-select:none;z-index:2;
   }
   .col-resizer:hover, .col-resizer.resizing{background:var(--chart);}
+  .col-remove{
+    position:absolute;top:2px;right:10px;width:15px;height:15px;border-radius:50%;
+    background:var(--surface-3);border:1px solid var(--border-strong);color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;line-height:1;padding:0;
+    opacity:0;transition:opacity .12s ease;z-index:3;
+  }
+  table.chq thead th:hover .col-remove{opacity:1;}
+  .col-remove:hover{background:var(--critical-dim);color:var(--critical);border-color:var(--critical);}
+
+  .columns-manage-wrap{position:relative;}
+  .columns-manage-menu{
+    display:none;position:absolute;top:calc(100% + 4px);right:0;min-width:200px;background:var(--surface-2);
+    border:1px solid var(--border-strong);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.5);z-index:40;padding:8px;
+  }
+  .columns-manage-wrap.open .columns-manage-menu{display:block;}
+  .columns-manage-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap;}
+  .columns-manage-item:hover{background:var(--surface-3);}
+  .columns-manage-empty{padding:6px 8px;font-size:11.5px;color:var(--ink-muted);white-space:nowrap;}
   table.chq tbody td{
     padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink);
     overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
@@ -421,7 +439,16 @@
   <div class="panel">
     <div class="panel-head">
       <h2>Cheques</h2>
-      <span class="count" id="tableCount">0 cheques</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="columns-manage-wrap" id="columnsManageWrap">
+          <button class="clear-btn" id="columnsManageBtn" type="button" title="Mostrar/ocultar colunas">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            Colunas
+          </button>
+          <div class="columns-manage-menu" id="columnsManageMenu"></div>
+        </div>
+        <span class="count" id="tableCount">0 cheques</span>
+      </div>
     </div>
     <div class="table-scroll">
       <table class="chq" id="chqTable">
@@ -1075,16 +1102,58 @@ function loadColumnWidths(){
   return {};
 }
 function saveColumnWidths(w){ try{ localStorage.setItem('qc_column_widths_v1', JSON.stringify(w)); }catch(e){} }
+function loadColumnVisibility(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_column_visibility_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveColumnVisibility(v){ try{ localStorage.setItem('qc_column_visibility_v1', JSON.stringify(v)); }catch(e){} }
 
 var columnOrder = loadColumnOrder();
 var columnWidths = loadColumnWidths();
+var columnVisibility = loadColumnVisibility();
+
+function visibleColumnOrder(){
+  return columnOrder.filter(function(key){ return columnVisibility[key] !== false; });
+}
+
+function updateColumnsManageMenu(){
+  var menu = document.getElementById('columnsManageMenu');
+  var hidden = columnOrder.filter(function(key){ return columnVisibility[key] === false; });
+  if (!hidden.length){
+    menu.innerHTML = '<div class="columns-manage-empty">Todas as colunas estão visíveis.</div>';
+    return;
+  }
+  menu.innerHTML = '';
+  hidden.forEach(function(key){
+    var col = COLUMNS[key];
+    if (!col) return;
+    var item = document.createElement('div');
+    item.className = 'columns-manage-item';
+    item.textContent = '+ ' + col.label;
+    item.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      pedirSenha('Digite a senha para incluir esta coluna de volta na tabela:', function(ok){
+        if (!ok) return;
+        columnVisibility[key] = true;
+        saveColumnVisibility(columnVisibility);
+        renderTableHead();
+        render();
+        updateColumnsManageMenu();
+      });
+    });
+    menu.appendChild(item);
+  });
+}
 
 function renderTableHead(){
   var colgroup = document.getElementById('tableColgroup');
   var headRow = document.getElementById('tableHeadRow');
   colgroup.innerHTML = '';
   headRow.innerHTML = '';
-  columnOrder.forEach(function(key){
+  visibleColumnOrder().forEach(function(key){
     var col = COLUMNS[key];
     var colEl = document.createElement('col');
     colEl.style.width = (columnWidths[key] || col.width || 120) + 'px';
@@ -1102,6 +1171,24 @@ function renderTableHead(){
     resizer.className = 'col-resizer';
     resizer.addEventListener('click', function(ev){ ev.stopPropagation(); });
     th.appendChild(resizer);
+
+    var colRemoveBtn = document.createElement('button');
+    colRemoveBtn.type = 'button';
+    colRemoveBtn.className = 'col-remove';
+    colRemoveBtn.title = 'Remover esta coluna da tabela';
+    colRemoveBtn.textContent = '×';
+    colRemoveBtn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      pedirSenha('Digite a senha para remover esta coluna da tabela:', function(ok){
+        if (!ok) return;
+        columnVisibility[key] = false;
+        saveColumnVisibility(columnVisibility);
+        renderTableHead();
+        render();
+        updateColumnsManageMenu();
+      });
+    });
+    th.appendChild(colRemoveBtn);
 
     th.addEventListener('dragstart', function(ev){
       ev.dataTransfer.setData('text/plain', key);
@@ -1175,8 +1262,9 @@ function render(){
   var rows = filtrados();
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
+  var visibleCols = visibleColumnOrder();
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="'+(columnOrder.length+1)+'" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
+    body.innerHTML = '<tr><td colspan="'+(visibleCols.length+1)+'" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
   } else {
     var sorted = rows.slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
     var podeEditar = currentUserRole === 'Editor';
@@ -1185,7 +1273,7 @@ function render(){
         ? '<button type="button" class="row-edit" data-rawid="'+r.id+'" title="Editar"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
           + '<button type="button" class="row-del" data-rawid="'+r.id+'" title="Excluir"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
         : '';
-      var cells = columnOrder.map(function(key){
+      var cells = visibleCols.map(function(key){
         var col = COLUMNS[key];
         var titleAttr = col.titleAttr ? ' title="'+col.titleAttr(r)+'"' : '';
         return '<td class="'+(col.cellCls||'')+'"'+titleAttr+'>'+col.render(r)+'</td>';
@@ -1226,7 +1314,7 @@ function render(){
   var footRow = document.getElementById('tableFootRow');
   var totalValor = rows.reduce(function(s,r){ return s + r.valor; }, 0);
   var totals = { valor: totalValor };
-  var footCells = columnOrder.map(function(key, i){
+  var footCells = visibleColumnOrder().map(function(key, i){
     if (i === 0) return '<td>Total</td>';
     if (totals.hasOwnProperty(key)) return '<td class="num">'+brl(totals[key])+'</td>';
     return '<td></td>';
@@ -1447,6 +1535,21 @@ function addFilterMoveButtons(){
     wrap.appendChild(moveWrap);
   });
 }
+
+document.getElementById('columnsManageBtn').addEventListener('click', function(ev){
+  ev.stopPropagation();
+  var wrap = document.getElementById('columnsManageWrap');
+  var willOpen = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', willOpen);
+  if (willOpen) updateColumnsManageMenu();
+});
+document.getElementById('columnsManageMenu').addEventListener('click', function(ev){ ev.stopPropagation(); });
+document.addEventListener('click', function(){
+  document.getElementById('columnsManageWrap').classList.remove('open');
+});
+document.addEventListener('keydown', function(ev){
+  if (ev.key === 'Escape') document.getElementById('columnsManageWrap').classList.remove('open');
+});
 
 applyFilterOrder();
 addFilterMoveButtons();
