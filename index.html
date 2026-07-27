@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qdelícia - Conciliação de Cheques</title>
+</head>
+<body><style>
+  :root{
+    --bg:#0a0b0f;
+    --surface:#14161d;
+    --surface-2:#1a1d27;
+    --surface-3:#20232e;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.16);
+    --ink:#f5f6f8;
+    --ink-soft:#9aa0b4;
+    --ink-muted:#656b80;
+    --critical:#e2504f;
+    --critical-dim:rgba(226,80,79,.16);
+    --positive:#2fbf6e;
+    --positive-dim:rgba(47,191,110,.16);
+    --neutral-dim:rgba(154,160,180,.14);
+    --chart:#3987e5;
+    --chart-soft:#6da7ec;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#000;color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;padding:22px;height:100vh;
+    overflow-y:auto;overflow-x:hidden;
+  }
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--border-strong);}
+
+  .report{
+    background:var(--bg);border:1px solid var(--border);border-radius:16px;
+    max-width:1100px;margin:0 auto;padding:22px 24px 26px;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);min-height:100%;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  .head-row{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:16px;flex-wrap:wrap;margin-bottom:14px;flex:none;
+  }
+  .brand h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.01em;}
+  .brand p{margin:2px 0 0;font-size:12.5px;color:var(--ink-soft);}
+  .header-actions{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap;}
+
+  .clear-btn{
+    flex:none;display:flex;align-items:center;gap:6px;
+    background:var(--surface);border:1px solid var(--border);color:var(--ink-soft);
+    font:600 11.5px var(--sans);padding:7.5px 11px;border-radius:7px;
+    cursor:pointer;white-space:nowrap;height:31px;
+  }
+  .clear-btn:hover{border-color:var(--border-strong);color:var(--ink);}
+  .clear-btn svg{width:13px;height:13px;flex:none;}
+
+  .add-btn{
+    display:flex;align-items:center;gap:6px;background:var(--chart);border:1px solid var(--chart);
+    color:#fff;font:600 11.5px var(--sans);padding:7.5px 12px;border-radius:7px;cursor:pointer;
+    white-space:nowrap;height:31px;flex:none;
+  }
+  .add-btn:hover{background:#2f78d1;}
+  .add-btn svg{width:13px;height:13px;}
+
+  .user-chip{
+    display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-soft);
+    background:var(--surface);border:1px solid var(--border);padding:5px 10px;border-radius:20px;
+  }
+  .user-chip svg{width:15px;height:15px;flex:none;color:var(--ink-muted);}
+
+  .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;flex:none;}
+  .filter-field{flex:0 0 auto;width:200px;}
+  .filter-field label{
+    display:block;font-size:10px;color:var(--ink-muted);
+    text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;
+  }
+  .filter-field input{
+    width:100%;background:var(--surface);border:1px solid var(--border);color:var(--ink);
+    font:12px var(--sans);padding:7px 8px;border-radius:7px;
+  }
+  .filter-field input:focus{outline:2px solid var(--chart);outline-offset:1px;}
+  @media (max-width:640px){ .filter-field{width:calc(50% - 5px);} }
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;flex:none;}
+  @media (max-width:640px){ .kpis{grid-template-columns:repeat(1,1fr);} }
+  .kpi{
+    position:relative;overflow:hidden;
+    background:linear-gradient(155deg,var(--surface-2),var(--surface));
+    border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;min-height:74px;
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  .kpi .v{font:600 18px var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+  .kpi .l{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:360px;}
+  .panel-head{
+    padding:12px 16px 10px;border-bottom:1px solid var(--border);
+    display:flex;justify-content:space-between;align-items:center;flex:none;
+  }
+  .panel-head h2{font-size:13px;margin:0;font-weight:600;}
+  .panel-head .count{font-size:11.5px;color:var(--ink-muted);font-family:var(--mono);}
+
+  .table-scroll{flex:1;min-height:0;overflow:auto;}
+  table.chq{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.chq thead th{
+    position:sticky;top:0;background:var(--surface-2);
+    text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--ink-muted);border-bottom:1px solid var(--border);
+    white-space:nowrap;z-index:1;
+  }
+  table.chq thead th.num{text-align:right;}
+  table.chq tbody td{
+    padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink);
+  }
+  table.chq tbody td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;}
+  table.chq tbody tr:hover td{background:var(--surface-2);}
+  table.chq tfoot td{
+    padding:9px 10px;font-family:var(--mono);font-variant-numeric:tabular-nums;
+    font-weight:700;border-top:1px solid var(--border-strong);
+    background:var(--surface-2);position:sticky;bottom:0;
+  }
+  .empty-note{padding:20px 16px;text-align:center;color:var(--ink-muted);font-size:12px;}
+
+  .row-del{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:6px;color:var(--ink-muted);
+    background:transparent;border:none;cursor:pointer;
+  }
+  .row-del:hover{background:var(--critical-dim);color:var(--critical);}
+  .row-del svg{width:13px;height:13px;}
+  .row-edit{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:6px;color:var(--ink-muted);
+    background:transparent;border:none;cursor:pointer;margin-right:2px;
+  }
+  .row-edit:hover{background:var(--surface-3);color:var(--chart-soft);}
+  .row-edit svg{width:13px;height:13px;}
+
+  .entry-panel{display:none;margin-bottom:14px;}
+  .entry-panel.open{display:block;flex:none;}
+  .entry-panel form{padding:16px;}
+  .entry-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  @media (max-width:760px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
+  .efield{display:flex;flex-direction:column;gap:5px;}
+  .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
+  .efield label .req{color:var(--critical);}
+  .efield input{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
+    font:13px var(--sans);padding:8px 10px;border-radius:7px;width:100%;
+  }
+  .efield input:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
+  .efield.invalid input{border-color:var(--critical);}
+  .entry-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+  .ebtn{
+    font:600 12.5px var(--sans);padding:9px 16px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--border);background:var(--surface-2);color:var(--ink-soft);
+  }
+  .ebtn:hover{border-color:var(--border-strong);color:var(--ink);}
+  .ebtn.primary{background:var(--chart);border-color:var(--chart);color:#fff;}
+  .ebtn.primary:hover{background:#2f78d1;}
+  .ebtn.ghost{background:transparent;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--positive-dim);border:1px solid var(--positive);color:var(--positive);
+    padding:10px 18px;border-radius:8px;font:600 12.5px var(--sans);
+    opacity:0;transition:opacity .2s ease, transform .2s ease;pointer-events:none;z-index:20;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .login-overlay{
+    display:none;position:fixed;inset:0;background:#000;
+    align-items:center;justify-content:center;z-index:2000;
+  }
+  .login-overlay.open{display:flex;}
+  .login-box{
+    background:var(--surface-2);border:1px solid var(--border-strong);border-radius:14px;
+    padding:32px;width:360px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .login-box h2{margin:0 0 6px;font-size:20px;font-weight:800;}
+  .login-box p{margin:0 0 20px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
+
+  .senha-overlay{
+    display:none;position:fixed;inset:0;background:rgba(5,6,10,.6);
+    align-items:center;justify-content:center;z-index:1000;
+  }
+  .senha-overlay.open{display:flex;}
+  .senha-modal{
+    background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;
+    padding:20px;width:280px;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .senha-modal h3{margin:0 0 6px;font:700 14px var(--sans);color:var(--ink);}
+  .senha-modal p{margin:0 0 12px;font-size:12px;color:var(--ink-soft);}
+  .senha-modal input{
+    width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);
+    color:var(--ink);border-radius:7px;padding:8px 10px;font:600 16px var(--mono);letter-spacing:3px;
+    text-align:center;
+  }
+  .senha-modal input:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:var(--chart);}
+  .senha-erro{display:none;margin:8px 0 0 !important;font-size:11.5px;color:var(--critical);}
+  .senha-erro.show{display:block;}
+  .senha-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+
+  .foot-note{margin:14px 4px 0;font-size:11px;color:var(--ink-muted);line-height:1.6;flex:none;}
+  .foot-note b{color:var(--ink-soft);}
+
+  @media (max-width:640px){
+    body{padding:8px;}
+    .report{padding:14px 12px 18px;border-radius:12px;}
+    .header-actions{width:100%;}
+    .header-actions .user-chip{order:-1;width:100%;justify-content:space-between;}
+    .entry-grid{grid-template-columns:1fr !important;}
+  }
+</style>
+
+<div class="report">
+  <div class="head-row">
+    <div class="brand">
+      <h1>Qdelícia</h1>
+      <p>Conciliação de Cheques</p>
+    </div>
+    <div class="header-actions">
+      <div class="user-chip" id="userChip" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/></svg>
+        <span id="userName"></span>
+        <button type="button" class="ebtn ghost" id="logoutBtn">Sair</button>
+      </div>
+      <button class="clear-btn" id="clearBtn" type="button" title="Limpar filtros">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 20H8l-6-6a2 2 0 0 1 0-2.83l8-8a2 2 0 0 1 2.83 0l7 7a2 2 0 0 1 0 2.83L13 20" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13.5 8.5 18 13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        Limpar
+      </button>
+      <button class="clear-btn" id="adminBtn" type="button" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.13.31.4.55.72.68.32.13.68.13 1 0H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.7"/></svg>
+        Administração
+      </button>
+      <button class="add-btn" id="addToggleBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Novo cheque
+      </button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="filter-field">
+      <label>Buscar (favorecido ou número)</label>
+      <input type="text" id="f_busca" placeholder="Digite para filtrar...">
+    </div>
+    <div class="filter-field">
+      <label>Data de envio (de)</label>
+      <input type="date" id="f_de">
+    </div>
+    <div class="filter-field">
+      <label>Data de envio (até)</label>
+      <input type="date" id="f_ate">
+    </div>
+  </div>
+
+  <div class="panel entry-panel" id="adminPanel" style="min-height:auto;flex:none;">
+    <div class="panel-head">
+      <h2>Administração de Acessos</h2>
+      <button type="button" class="ebtn ghost" id="adminCloseBtn">Fechar</button>
+    </div>
+    <div style="padding:16px;">
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="email" id="adm_email" placeholder="e-mail@exemplo.com" style="flex:1;min-width:220px;background:var(--surface-2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:7px;font:13px var(--sans);">
+        <select id="adm_papel" style="background:var(--surface-2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:7px;font:13px var(--sans);">
+          <option value="Visualizador">Visualizador (só vê)</option>
+          <option value="Editor">Editor (vê e lança)</option>
+        </select>
+        <button type="button" class="ebtn primary" id="adm_conceder">Conceder acesso</button>
+      </div>
+      <div id="adm_lista"></div>
+      <p style="font-size:11px;color:var(--ink-muted);margin-top:14px;">Conceder acesso compartilha o arquivo de verdade no SharePoint para esse e-mail (Editor = leitura e escrita, Visualizador = somente leitura). Revogar remove esse compartilhamento.</p>
+    </div>
+  </div>
+
+  <div class="panel entry-panel" id="entryPanel" style="min-height:auto;flex:none;">
+    <div class="panel-head">
+      <h2>Novo cheque</h2>
+      <div style="display:flex;gap:10px;">
+        <button type="button" class="ebtn ghost" id="cancelEntryBtn">Cancelar</button>
+        <button type="submit" form="entryForm" class="ebtn primary" id="entrySubmitBtn">Adicionar cheque</button>
+      </div>
+    </div>
+    <form id="entryForm">
+      <div class="entry-grid">
+        <div class="efield">
+          <label>Data de Envio <span class="req">*</span></label>
+          <input type="date" id="nf_dataEnvio" required>
+        </div>
+        <div class="efield">
+          <label>Número do Cheque <span class="req">*</span></label>
+          <input type="text" id="nf_numero" placeholder="Ex.: 000123" required>
+        </div>
+        <div class="efield" style="grid-column:span 2;">
+          <label>Nome do Favorecido <span class="req">*</span></label>
+          <input type="text" id="nf_favorecido" placeholder="Ex.: João da Silva" required>
+        </div>
+        <div class="efield">
+          <label>Valor (R$) <span class="req">*</span></label>
+          <input type="text" inputmode="decimal" id="nf_valor" placeholder="Ex.: 1.250,00" required>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="kpis" id="kpis">
+    <div class="kpi"><div class="v" id="kpiQtd">0</div><div class="l">Cheques lançados</div></div>
+    <div class="kpi"><div class="v" id="kpiTotal">R$ 0,00</div><div class="l">Valor total</div></div>
+    <div class="kpi"><div class="v" id="kpiMedio">R$ 0,00</div><div class="l">Valor médio</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Cheques</h2>
+      <span class="count" id="tableCount">0 cheques</span>
+    </div>
+    <div class="table-scroll">
+      <table class="chq" id="chqTable">
+        <thead>
+          <tr>
+            <th>Data de Envio</th>
+            <th>Número do Cheque</th>
+            <th>Nome do Favorecido</th>
+            <th class="num">Valor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot><tr id="tableFootRow"></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <p class="foot-note">
+    <b>Fonte:</b> planilha "Conciliação de Cheques.xlsx" no SharePoint (sincronização em tempo real). Cheques lançados aqui são gravados direto na planilha.
+  </p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="login-overlay open" id="loginOverlay">
+  <div class="login-box">
+    <h2>Conciliação de Cheques</h2>
+    <p>Entre com sua conta Microsoft para ver e lançar os cheques direto na planilha do SharePoint.</p>
+    <button type="button" class="ebtn primary" id="loginBtn" style="width:100%;padding:11px;">Entrar com Microsoft</button>
+  </div>
+</div>
+
+<div class="login-overlay" id="semAcessoOverlay">
+  <div class="login-box">
+    <h2>Sem acesso</h2>
+    <p>Você entrou como <b id="semAcessoEmail"></b>, mas ainda não tem acesso liberado a este aplicativo. Peça para o administrador liberar seu e-mail.</p>
+    <p id="semAcessoDetalhe" style="font-size:10.5px;color:var(--ink-muted);margin-top:-6px;word-break:break-word;"></p>
+    <button type="button" class="ebtn ghost" id="semAcessoSairBtn" style="width:100%;padding:11px;">Sair</button>
+  </div>
+</div>
+
+<div class="senha-overlay" id="senhaOverlay">
+  <div class="senha-modal">
+    <h3>Autorização necessária</h3>
+    <p id="senhaMsg">Digite a senha para continuar.</p>
+    <input type="password" id="senhaInput" inputmode="numeric" autocomplete="off" placeholder="Senha">
+    <p class="senha-erro" id="senhaErro">Senha incorreta. Tente novamente.</p>
+    <div class="senha-actions">
+      <button type="button" class="ebtn ghost" id="senhaCancelar">Cancelar</button>
+      <button type="button" class="ebtn primary" id="senhaConfirmar">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script>
+var DATA = [];
+
+/* ---- login Microsoft + Graph API (SharePoint ao vivo) ---- */
+var MSAL_CONFIG = {
+  auth: {
+    clientId: '9291254e-8c79-4641-8d7d-c5771d82ccde',
+    authority: 'https://login.microsoftonline.com/common',
+    redirectUri: 'https://sinerggia-dev.github.io/qdelicia-conciliacao-cheques/'
+  },
+  cache: { cacheLocation: 'localStorage' }
+};
+var GRAPH_SCOPES = ['Files.ReadWrite.All'];
+var GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+var DRIVE_ID = 'b!Xyf9Y4l0qUWv1kO5T5rKOn3FJmBOsbRFnpjvpPbvNvrn80E1xObESKagjmnZsZfm';
+var DONO_EMAIL = 'natanael.silva@sinerggia.com.br';
+var ITEM_ID = '01ZF6ARXRU7Y7G4L7UOZAYVXCDR5WLFKKW';
+var TABLE_NAME = 'TabelaCheques';
+var USERS_TABLE_NAME = 'TabelaUsuariosCheques';
+var SENHA_ACAO = '727349';
+
+var currentUserRole = null;
+var msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+var currentAccount = null;
+
+function ddmmyyToISO(str){
+  if (typeof str === 'number' || (typeof str === 'string' && /^\d+(\.\d+)?$/.test(str.trim()))) {
+    var serial = Number(str);
+    if (serial > 0) {
+      var d = new Date(Math.round((serial - 25569) * 86400000));
+      return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0');
+    }
+  }
+  var m = String(str||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return str;
+  var m2 = String(str||'').match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/);
+  if (!m2) return '';
+  var yy = m2[3].length === 2 ? '20'+m2[3] : m2[3];
+  return yy + '-' + m2[2] + '-' + m2[1];
+}
+function isoToSerial(iso){
+  var p = String(iso||'').split('-');
+  if (p.length !== 3) return '';
+  var utcMs = Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  return Math.round(utcMs / 86400000) + 25569;
+}
+function fmtDateBR(iso){
+  if (!iso) return '';
+  var p = String(iso).split('-');
+  if (p.length !== 3) return '';
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+function parseBRL(str){
+  str = String(str || '').trim();
+  if (!str) return 0;
+  if (typeof str === 'number') return str;
+  if (str.indexOf(',') !== -1 && str.indexOf('.') !== -1) str = str.replace(/\./g, '').replace(',', '.');
+  else if (str.indexOf(',') !== -1) str = str.replace(',', '.');
+  var n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
+}
+function brl(v){
+  if (v === null || v === undefined) return '—';
+  return Number(v).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+}
+
+function graphRowToRow(v, rowIndex){
+  return {
+    id: v[0], _rowIndex: rowIndex,
+    dataEnvio: ddmmyyToISO(v[1]),
+    numero: String(v[2]||''),
+    favorecido: String(v[3]||''),
+    valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4])
+  };
+}
+
+function salvarContaAtiva(homeAccountId){
+  try { localStorage.setItem('qc_msal_active_account', homeAccountId || ''); } catch(e){}
+}
+function lerContaAtivaSalva(){
+  try { return localStorage.getItem('qc_msal_active_account') || ''; } catch(e){ return ''; }
+}
+
+async function initAuth(){
+  try {
+    await msalInstance.initialize();
+    await msalInstance.handleRedirectPromise();
+    var accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0){
+      var idSalvo = lerContaAtivaSalva();
+      var achada = idSalvo ? accounts.find(function(a){ return a.homeAccountId === idSalvo; }) : null;
+      currentAccount = achada || accounts[0];
+      msalInstance.setActiveAccount(currentAccount);
+    }
+  } catch (e) { /* segue sem login */ }
+  atualizarEstadoLogin();
+  if (currentAccount) { await processarLogin(); }
+  else { render(); }
+}
+
+async function entrar(){
+  try {
+    var result = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
+    currentAccount = result.account;
+    msalInstance.setActiveAccount(currentAccount);
+    salvarContaAtiva(currentAccount.homeAccountId);
+    atualizarEstadoLogin();
+    await processarLogin();
+  } catch (e) {
+    showToast('Não foi possível entrar: ' + (e && e.message ? e.message : e));
+  }
+}
+function sair(){
+  currentAccount = null;
+  currentUserRole = null;
+  msalInstance.setActiveAccount(null);
+  salvarContaAtiva('');
+  DATA = [];
+  atualizarEstadoLogin();
+  document.getElementById('semAcessoOverlay').classList.remove('open');
+  render();
+}
+function atualizarEstadoLogin(){
+  var logado = !!currentAccount;
+  document.getElementById('loginOverlay').classList.toggle('open', !logado);
+  document.getElementById('userChip').style.display = logado ? 'flex' : 'none';
+  if (logado) document.getElementById('userName').textContent = currentAccount.username || currentAccount.name || '';
+}
+function ehDono(){
+  return !!currentAccount && (currentAccount.username||'').toLowerCase() === DONO_EMAIL.toLowerCase();
+}
+
+async function getToken(){
+  if (!currentAccount) throw new Error('Entre com sua conta Microsoft primeiro.');
+  try {
+    var result = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: currentAccount });
+    return result.accessToken;
+  } catch (e) {
+    var result2 = await msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES, account: currentAccount });
+    return result2.accessToken;
+  }
+}
+
+async function criarSessaoWorkbook(token){
+  try {
+    var resp = await fetch(GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + '/workbook/createSession', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persistChanges: false })
+    });
+    if (!resp.ok) return null;
+    var json = await resp.json();
+    return json.id || null;
+  } catch (e) { return null; }
+}
+function headersComSessao(token, sessionId){
+  var h = { Authorization: 'Bearer ' + token };
+  if (sessionId) h['workbook-session-id'] = sessionId;
+  return h;
+}
+
+async function buscarUsuarios(token){
+  var sessionId = await criarSessaoWorkbook(token);
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + USERS_TABLE_NAME + "')/rows";
+  var resp = await fetch(url, { headers: headersComSessao(token, sessionId) });
+  if (!resp.ok) {
+    var corpoErro = '';
+    try { corpoErro = await resp.text(); } catch(e){}
+    throw new Error('HTTP ' + resp.status + (corpoErro ? ' — ' + corpoErro.slice(0, 300) : ''));
+  }
+  var json = await resp.json();
+  return json.value.map(function(row){
+    var v = row.values[0];
+    return { _rowIndex: row.index, email: String(v[0]||'').trim(), papel: v[1]||'', status: v[2]||'', data: v[3]||'' };
+  });
+}
+
+var ultimoErroAcesso = null;
+async function verificarAcesso(token){
+  ultimoErroAcesso = null;
+  if (ehDono()) return 'Editor';
+  var email = (currentAccount.username || '').toLowerCase();
+  try {
+    var usuarios = await buscarUsuarios(token);
+    var match = usuarios.find(function(u){ return u.email.toLowerCase() === email; });
+    if (match && match.status === 'Aprovado') return match.papel === 'Editor' ? 'Editor' : 'Visualizador';
+    if (match) ultimoErroAcesso = 'E-mail encontrado, mas status é "' + match.status + '" (precisa ser "Aprovado").';
+    else ultimoErroAcesso = 'E-mail não encontrado na lista de usuários aprovados.';
+  } catch (e) { ultimoErroAcesso = 'Falha ao consultar a lista de usuários: ' + (e && e.message ? e.message : e); }
+  return null;
+}
+
+function mostrarSemAcesso(){
+  document.getElementById('semAcessoEmail').textContent = currentAccount.username || currentAccount.name || '';
+  document.getElementById('semAcessoDetalhe').textContent = ultimoErroAcesso ? ('Detalhe técnico: ' + ultimoErroAcesso) : '';
+  document.getElementById('semAcessoOverlay').classList.add('open');
+  document.getElementById('userChip').style.display = 'none';
+}
+function aplicarRestricoesPapel(){
+  document.getElementById('addToggleBtn').style.display = currentUserRole === 'Editor' ? '' : 'none';
+  document.getElementById('adminBtn').style.display = ehDono() ? '' : 'none';
+}
+
+async function processarLogin(){
+  try {
+    var token = await getToken();
+    currentUserRole = await verificarAcesso(token);
+  } catch (e) {
+    currentUserRole = null;
+    ultimoErroAcesso = 'Falha ao obter token de acesso: ' + (e && e.message ? e.message : e);
+  }
+  if (!currentUserRole){ mostrarSemAcesso(); return; }
+  document.getElementById('semAcessoOverlay').classList.remove('open');
+  aplicarRestricoesPapel();
+  await carregarDados();
+}
+
+async function carregarDados(){
+  try {
+    var token = await getToken();
+    var sessionId = await criarSessaoWorkbook(token);
+    var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + TABLE_NAME + "')/rows";
+    var resp = await fetch(url, { headers: headersComSessao(token, sessionId) });
+    if (!resp.ok) {
+      var corpoErro = '';
+      try { corpoErro = await resp.text(); } catch(e2){}
+      throw new Error('HTTP ' + resp.status + (corpoErro ? ' — ' + corpoErro.slice(0, 300) : ''));
+    }
+    var json = await resp.json();
+    DATA = json.value.map(function(row){ return graphRowToRow(row.values[0], row.index); })
+      .filter(function(r){ return r.dataEnvio || r.numero || r.favorecido; });
+  } catch (e) {
+    showToast('Erro ao carregar dados: ' + (e && e.message ? e.message : e));
+    DATA = [];
+  }
+  render();
+}
+
+async function buscarLinhasAtuaisGraph(token){
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + TABLE_NAME + "')/rows";
+  var resp = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!resp.ok) throw new Error('Não foi possível consultar a planilha (HTTP ' + resp.status + ').');
+  var json = await resp.json();
+  return json.value;
+}
+async function adicionarLinhaGraph(token, linha){
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + TABLE_NAME + "')/rows";
+  var resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [linha] })
+  });
+  if (!resp.ok) { var t = await resp.text(); throw new Error('Falha ao gravar na planilha (' + resp.status + '): ' + t); }
+  return await resp.json();
+}
+async function atualizarLinhaGraph(token, rowIndex, linha){
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + TABLE_NAME + "')/rows/itemAt(index=" + rowIndex + ')';
+  var resp = await fetch(url, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [linha] })
+  });
+  if (!resp.ok) { var t = await resp.text(); throw new Error('Falha ao atualizar a planilha (' + resp.status + '): ' + t); }
+}
+async function removerLinhaGraph(token, rowIndex){
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + TABLE_NAME + "')/rows/itemAt(index=" + rowIndex + ')';
+  var resp = await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+  if (!resp.ok && resp.status !== 204) { var t = await resp.text(); throw new Error('Falha ao remover da planilha (' + resp.status + '): ' + t); }
+}
+async function resolverRowIndexAtual(token, id){
+  var linhas = await buscarLinhasAtuaisGraph(token);
+  var match = linhas.find(function(row){ return row.values[0][0] === id; });
+  if (!match) throw new Error('Cheque não encontrado na planilha (pode ter sido removido em outra sessão).');
+  return match.index;
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+var senhaCallback = null;
+function pedirSenha(mensagem, callback){
+  senhaCallback = callback;
+  document.getElementById('senhaMsg').textContent = mensagem || 'Digite a senha para autorizar esta ação:';
+  document.getElementById('senhaErro').classList.remove('show');
+  var input = document.getElementById('senhaInput');
+  input.value = '';
+  document.getElementById('senhaOverlay').classList.add('open');
+  input.focus();
+}
+function fecharSenha(){
+  document.getElementById('senhaOverlay').classList.remove('open');
+  senhaCallback = null;
+}
+function confirmarSenha(){
+  var input = document.getElementById('senhaInput');
+  var cb = senhaCallback;
+  if (input.value === SENHA_ACAO){
+    fecharSenha();
+    if (cb) cb(true);
+  } else {
+    document.getElementById('senhaErro').classList.add('show');
+    input.value = '';
+    input.focus();
+  }
+}
+function cancelarSenha(){
+  var cb = senhaCallback;
+  fecharSenha();
+  if (cb) cb(false);
+}
+document.getElementById('senhaConfirmar').addEventListener('click', confirmarSenha);
+document.getElementById('senhaCancelar').addEventListener('click', cancelarSenha);
+document.getElementById('senhaInput').addEventListener('keydown', function(ev){
+  if (ev.key === 'Enter'){ ev.preventDefault(); confirmarSenha(); }
+  if (ev.key === 'Escape'){ ev.preventDefault(); cancelarSenha(); }
+});
+
+var entryPanel = document.getElementById('entryPanel');
+var addToggleBtn = document.getElementById('addToggleBtn');
+var editingId = null;
+
+function setFormMode(editing){
+  var panelTitle = document.querySelector('#entryPanel .panel-head h2');
+  var submitBtn = document.getElementById('entrySubmitBtn');
+  if (panelTitle) panelTitle.textContent = editing ? 'Editar cheque' : 'Novo cheque';
+  if (submitBtn) submitBtn.textContent = editing ? 'Salvar alterações' : 'Adicionar cheque';
+}
+function togglePanel(open){
+  entryPanel.classList.toggle('open', open);
+  if (open) document.getElementById('nf_dataEnvio').focus();
+}
+addToggleBtn.addEventListener('click', function(){
+  var opening = !entryPanel.classList.contains('open');
+  if (opening && editingId !== null){
+    editingId = null;
+    document.getElementById('entryForm').reset();
+    setFormMode(false);
+  }
+  document.getElementById('adminPanel').classList.remove('open');
+  togglePanel(opening);
+});
+document.getElementById('cancelEntryBtn').addEventListener('click', function(){
+  editingId = null;
+  setFormMode(false);
+  togglePanel(false);
+  document.getElementById('entryForm').reset();
+});
+
+function abrirParaEdicao(rawId){
+  var entry = DATA.find(function(e){ return e.id === rawId; });
+  if (!entry) { showToast('Cheque não encontrado.'); return; }
+  editingId = rawId;
+  document.getElementById('nf_dataEnvio').value = entry.dataEnvio || '';
+  document.getElementById('nf_numero').value = entry.numero || '';
+  document.getElementById('nf_favorecido').value = entry.favorecido || '';
+  document.getElementById('nf_valor').value = String(entry.valor).replace('.', ',');
+  setFormMode(true);
+  togglePanel(true);
+}
+function setFieldValid(el, valid){
+  if (!el) return;
+  var wrap = el.closest ? el.closest('.efield') : null;
+  if (!wrap) return;
+  wrap.classList.toggle('invalid', !valid);
+}
+
+document.getElementById('entryForm').addEventListener('submit', function(ev){
+  ev.preventDefault();
+  var submitBtn = document.getElementById('entrySubmitBtn');
+  var submitBtnOriginalText = submitBtn ? submitBtn.textContent : '';
+  function setSubmitting(on){
+    if (!submitBtn) return;
+    submitBtn.disabled = on;
+    submitBtn.textContent = on ? 'Enviando...' : submitBtnOriginalText;
+  }
+  try {
+    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor'];
+    var ok = true;
+    required.forEach(function(id){
+      var el = document.getElementById(id);
+      var hasValue = !!(el && el.value);
+      setFieldValid(el, hasValue);
+      if (!hasValue) ok = false;
+    });
+    var valorEl = document.getElementById('nf_valor');
+    var valorRaw = (valorEl ? valorEl.value : '').trim();
+    var valorOk = /^[\d.,]+$/.test(valorRaw) && parseBRL(valorRaw) >= 0;
+    setFieldValid(valorEl, valorOk);
+    if (!valorOk) ok = false;
+
+    if (!ok){ showToast('Preencha os campos obrigatórios (*) com valores válidos.'); return; }
+
+    var finishSubmit = async function(){
+      try {
+        if (!currentAccount) { showToast('Entre com sua conta Microsoft primeiro.'); return; }
+        if (currentUserRole !== 'Editor') { showToast('Seu acesso é somente leitura (Visualizador).'); return; }
+        var isEditing = editingId !== null;
+        var existing = isEditing ? DATA.find(function(e){ return e.id === editingId; }) : null;
+        if (isEditing && !existing) { showToast('Cheque não encontrado (pode já ter sido removido).'); editingId = null; setFormMode(false); return; }
+
+        var token = await getToken();
+        var linhasAtuaisGraph = isEditing ? null : await buscarLinhasAtuaisGraph(token);
+        var novoId = isEditing ? existing.id : (linhasAtuaisGraph.reduce(function(m,r){ return Math.max(m, r.values[0][0]); }, 0) + 1);
+
+        var dataEnvio = document.getElementById('nf_dataEnvio').value;
+        var numero = document.getElementById('nf_numero').value.trim();
+        var favorecido = document.getElementById('nf_favorecido').value.trim();
+        var valor = parseBRL(document.getElementById('nf_valor').value);
+
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor ];
+
+        if (isEditing) {
+          var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
+          await atualizarLinhaGraph(token, rowIndexAtual, linha);
+        } else {
+          var linhaCriada = await adicionarLinhaGraph(token, linha);
+          var linhasDepois = await buscarLinhasAtuaisGraph(token);
+          var colisao = linhasDepois.find(function(r){ return r.index !== linhaCriada.index && r.values[0][0] === novoId; });
+          if (colisao) {
+            var idCorrigido = linhasDepois.reduce(function(m,r){ return Math.max(m, r.values[0][0]); }, 0) + 1;
+            var linhaCorrigida = linha.slice();
+            linhaCorrigida[0] = idCorrigido;
+            await atualizarLinhaGraph(token, linhaCriada.index, linhaCorrigida);
+            novoId = idCorrigido;
+          }
+        }
+
+        showToast(isEditing ? ('Cheque #' + novoId + ' atualizado.') : ('Cheque #' + novoId + ' adicionado.'));
+        var wasEditing = isEditing;
+        editingId = null;
+        setFormMode(false);
+        document.getElementById('entryForm').reset();
+        if (wasEditing) togglePanel(false);
+        else document.getElementById('nf_numero').focus();
+        await carregarDados();
+      } catch (err) {
+        showToast('Erro ao salvar: ' + (err && err.message ? err.message : err));
+      } finally {
+        setSubmitting(false);
+      }
+    };
+    setSubmitting(true);
+    finishSubmit();
+  } catch (err) {
+    showToast('Erro inesperado ao adicionar: ' + err.message);
+    setSubmitting(false);
+  }
+});
+
+function filtrados(){
+  var busca = (document.getElementById('f_busca').value || '').trim().toLowerCase();
+  var de = document.getElementById('f_de').value;
+  var ate = document.getElementById('f_ate').value;
+  return DATA.filter(function(r){
+    if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1 && r.numero.toLowerCase().indexOf(busca) === -1) return false;
+    if (de && r.dataEnvio && r.dataEnvio < de) return false;
+    if (ate && r.dataEnvio && r.dataEnvio > ate) return false;
+    return true;
+  });
+}
+
+function render(){
+  var rows = filtrados();
+  var body = document.getElementById('tableBody');
+  document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="5" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
+  } else {
+    var sorted = rows.slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
+    var podeEditar = currentUserRole === 'Editor';
+    body.innerHTML = sorted.map(function(r){
+      var acoes = podeEditar
+        ? '<button type="button" class="row-edit" data-rawid="'+r.id+'" title="Editar"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+          + '<button type="button" class="row-del" data-rawid="'+r.id+'" title="Excluir"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+        : '';
+      return '<tr>'
+        + '<td>'+fmtDateBR(r.dataEnvio)+'</td>'
+        + '<td>'+r.numero+'</td>'
+        + '<td>'+r.favorecido+'</td>'
+        + '<td class="num">'+brl(r.valor)+'</td>'
+        + '<td style="white-space:nowrap;">'+acoes+'</td>'
+        + '</tr>';
+    }).join('');
+    body.querySelectorAll('.row-edit').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        pedirSenha('Digite a senha para editar este cheque:', function(ok){
+          if (!ok) return;
+          abrirParaEdicao(Number(btn.getAttribute('data-rawid')));
+        });
+      });
+    });
+    body.querySelectorAll('.row-del').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        pedirSenha('Digite a senha para remover este cheque:', function(ok){
+          if (!ok) return;
+          var rawId = Number(btn.getAttribute('data-rawid'));
+          var row = DATA.find(function(r){ return r.id === rawId; });
+          if (!row) { showToast('Cheque não encontrado.'); return; }
+          (async function(){
+            try {
+              var token = await getToken();
+              var rowIndexAtual = await resolverRowIndexAtual(token, row.id);
+              await removerLinhaGraph(token, rowIndexAtual);
+              if (editingId === rawId) { editingId = null; setFormMode(false); togglePanel(false); }
+              showToast('Cheque removido.');
+              await carregarDados();
+            } catch (err) {
+              showToast('Erro ao remover: ' + (err && err.message ? err.message : err));
+            }
+          })();
+        });
+      });
+    });
+  }
+  var footRow = document.getElementById('tableFootRow');
+  var totalValor = rows.reduce(function(s,r){ return s + r.valor; }, 0);
+  footRow.innerHTML = '<td>Total</td><td></td><td></td><td class="num">'+brl(totalValor)+'</td><td></td>';
+
+  document.getElementById('kpiQtd').textContent = rows.length;
+  document.getElementById('kpiTotal').textContent = brl(totalValor);
+  document.getElementById('kpiMedio').textContent = brl(rows.length ? totalValor/rows.length : 0);
+}
+
+document.getElementById('f_busca').addEventListener('input', render);
+document.getElementById('f_de').addEventListener('change', render);
+document.getElementById('f_ate').addEventListener('change', render);
+document.getElementById('clearBtn').addEventListener('click', function(){
+  document.getElementById('f_busca').value = '';
+  document.getElementById('f_de').value = '';
+  document.getElementById('f_ate').value = '';
+  render();
+});
+
+function renderAdminLista(usuarios){
+  var el = document.getElementById('adm_lista');
+  if (!usuarios.length){
+    el.innerHTML = '<p style="color:var(--ink-muted);font-size:12px;">Nenhum usuário cadastrado ainda (além de você).</p>';
+    return;
+  }
+  el.innerHTML = usuarios.map(function(u){
+    var statusCls = u.status === 'Aprovado' ? 'positive' : 'critical';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">'+
+      '<span style="flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+u.email+'</span>'+
+      '<span style="font-size:11px;color:var(--'+statusCls+');">'+u.status+'</span>'+
+      '<span style="font-size:11.5px;color:var(--ink-soft);width:90px;flex:none;">'+u.papel+'</span>'+
+      '<button type="button" class="ebtn" data-revoke="'+u.email.replace(/"/g,'&quot;')+'" style="padding:5px 10px;font-size:11px;flex:none;">Revogar</button>'+
+    '</div>';
+  }).join('');
+  el.querySelectorAll('[data-revoke]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var email = btn.getAttribute('data-revoke');
+      pedirSenha('Digite a senha para revogar o acesso de ' + email + ':', function(ok){
+        if (!ok) return;
+        revogarAcesso(email);
+      });
+    });
+  });
+}
+
+async function carregarAdminPanel(){
+  try {
+    var token = await getToken();
+    var usuarios = await buscarUsuarios(token);
+    usuarios = usuarios.filter(function(u){ return u.email.toLowerCase() !== DONO_EMAIL.toLowerCase(); });
+    renderAdminLista(usuarios);
+  } catch (e) {
+    showToast('Erro ao carregar usuários: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function concederAcessoGraph(token, email, papel){
+  var role = papel === 'Editor' ? 'write' : 'read';
+  var inviteUrl = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + '/invite';
+  var resp = await fetch(inviteUrl, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requireSignIn: true, sendInvitation: false, roles: [role], recipients: [{ email: email }] })
+  });
+  if (!resp.ok) { var t = await resp.text(); throw new Error('Falha ao compartilhar no SharePoint (' + resp.status + '): ' + t); }
+
+  var usuarios = await buscarUsuarios(token);
+  var existente = usuarios.find(function(u){ return u.email.toLowerCase() === email.toLowerCase(); });
+  var hoje = new Date();
+  var dataStr = String(hoje.getDate()).padStart(2,'0')+'/'+String(hoje.getMonth()+1).padStart(2,'0')+'/'+hoje.getFullYear();
+  var usersUrl = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + USERS_TABLE_NAME + "')/rows";
+  if (existente){
+    await fetch(usersUrl + '/itemAt(index=' + existente._rowIndex + ')', {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[email, papel, 'Aprovado', dataStr]] })
+    });
+  } else {
+    await fetch(usersUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[email, papel, 'Aprovado', dataStr]] })
+    });
+  }
+}
+
+async function revogarAcesso(email){
+  try {
+    var token = await getToken();
+    var permUrl = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + '/permissions';
+    var resp = await fetch(permUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if (resp.ok){
+      var permissions = (await resp.json()).value;
+      var alvo = permissions.find(function(p){
+        var e1 = p.grantedToV2 && p.grantedToV2.user && p.grantedToV2.user.email;
+        var identidades = p.grantedToIdentitiesV2 || [];
+        var e2 = identidades.map(function(g){ return g.user && g.user.email; }).filter(Boolean);
+        return (e1 && e1.toLowerCase() === email.toLowerCase()) || e2.some(function(x){ return x.toLowerCase() === email.toLowerCase(); });
+      });
+      if (alvo) await fetch(permUrl + '/' + alvo.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    }
+    var usuarios = await buscarUsuarios(token);
+    var existente = usuarios.find(function(u){ return u.email.toLowerCase() === email.toLowerCase(); });
+    if (existente){
+      var usersUrl = GRAPH_BASE + '/drives/' + DRIVE_ID + '/items/' + ITEM_ID + "/workbook/tables('" + USERS_TABLE_NAME + "')/rows";
+      await fetch(usersUrl + '/itemAt(index=' + existente._rowIndex + ')', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[existente.email, existente.papel, 'Bloqueado', existente.data]] })
+      });
+    }
+    showToast('Acesso de ' + email + ' revogado.');
+    await carregarAdminPanel();
+  } catch (e) {
+    showToast('Erro ao revogar: ' + (e && e.message ? e.message : e));
+  }
+}
+
+document.getElementById('adm_conceder').addEventListener('click', function(){
+  var email = document.getElementById('adm_email').value.trim();
+  var papel = document.getElementById('adm_papel').value;
+  if (!email || email.indexOf('@') === -1){ showToast('Digite um e-mail válido.'); return; }
+  pedirSenha('Digite a senha para conceder acesso a ' + email + ':', function(ok){
+    if (!ok) return;
+    (async function(){
+      try {
+        var token = await getToken();
+        await concederAcessoGraph(token, email, papel);
+        showToast('Acesso concedido para ' + email + '.');
+        document.getElementById('adm_email').value = '';
+        await carregarAdminPanel();
+      } catch (err) {
+        showToast('Erro ao conceder acesso: ' + (err && err.message ? err.message : err));
+      }
+    })();
+  });
+});
+
+document.getElementById('adminBtn').addEventListener('click', function(){
+  var opening = !document.getElementById('adminPanel').classList.contains('open');
+  document.getElementById('entryPanel').classList.remove('open');
+  document.getElementById('adminPanel').classList.toggle('open', opening);
+  if (opening) carregarAdminPanel();
+});
+document.getElementById('adminCloseBtn').addEventListener('click', function(){
+  document.getElementById('adminPanel').classList.remove('open');
+});
+document.getElementById('semAcessoSairBtn').addEventListener('click', sair);
+document.getElementById('loginBtn').addEventListener('click', entrar);
+document.getElementById('logoutBtn').addEventListener('click', sair);
+
+initAuth();
+</script>
+
+</body>
+</html>
