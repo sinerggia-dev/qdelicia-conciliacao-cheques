@@ -20,6 +20,8 @@
     --critical-dim:rgba(226,80,79,.16);
     --positive:#2fbf6e;
     --positive-dim:rgba(47,191,110,.16);
+    --warning:#fab219;
+    --warning-dim:rgba(250,178,25,.16);
     --neutral-dim:rgba(154,160,180,.14);
     --chart:#3987e5;
     --chart-soft:#6da7ec;
@@ -177,6 +179,19 @@
   .attach svg{width:13px;height:13px;}
   .attach.off{color:var(--ink-muted);opacity:.3;pointer-events:none;}
 
+  .pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;
+    white-space:nowrap;
+  }
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;}
+  .pill.pago{background:var(--positive-dim);color:var(--positive);}
+  .pill.pago::before{background:var(--positive);}
+  .pill.cancelado{background:var(--critical-dim);color:var(--critical);}
+  .pill.cancelado::before{background:var(--critical);}
+  .pill.aguardando{background:var(--warning-dim);color:var(--warning);}
+  .pill.aguardando::before{background:var(--warning);}
+
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
   .entry-panel form{padding:16px;}
@@ -291,11 +306,15 @@
     <div class="filters">
       <div class="filter-field" data-filter-key="favorecido">
         <label>Favorecido</label>
-        <input type="text" id="f_busca" name="qc_busca_favorecido" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+        <select id="f_busca">
+          <option value="">Todos</option>
+        </select>
       </div>
       <div class="filter-field" data-filter-key="numero">
         <label>Cheque</label>
-        <input type="text" id="f_numero" name="qc_busca_numero" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+        <select id="f_numero">
+          <option value="">Todos</option>
+        </select>
       </div>
       <div class="filter-field" data-filter-key="pagamento">
         <label>Pagamento</label>
@@ -307,6 +326,15 @@
           <option value="">Todos</option>
           <option value="Urbano">Urbano</option>
           <option value="Genivaldo">Genivaldo</option>
+        </select>
+      </div>
+      <div class="filter-field" data-filter-key="status">
+        <label>Status</label>
+        <select id="f_status">
+          <option value="">Todos</option>
+          <option value="Aguardando">Aguardando</option>
+          <option value="Pago">Pago</option>
+          <option value="Cancelado">Cancelado</option>
         </select>
       </div>
       <div class="filter-field" data-filter-key="mesAno">
@@ -372,6 +400,14 @@
           <select id="nf_chequeDe" required>
             <option value="Urbano">Urbano</option>
             <option value="Genivaldo">Genivaldo</option>
+          </select>
+        </div>
+        <div class="efield">
+          <label>Status <span class="req">*</span></label>
+          <select id="nf_status" required>
+            <option value="Aguardando">Aguardando</option>
+            <option value="Pago">Pago</option>
+            <option value="Cancelado">Cancelado</option>
           </select>
         </div>
         <div class="efield" style="grid-column:1/-1;">
@@ -510,6 +546,21 @@ function buildMesAnoOptions(){
   }).join('');
   if (chaves.indexOf(atual) !== -1) sel.value = atual;
 }
+function buildSelectOptionsFromData(selectId, campo){
+  var sel = document.getElementById(selectId);
+  var atual = sel.value;
+  var vistos = {};
+  var valores = [];
+  DATA.forEach(function(r){
+    var v = r[campo];
+    if (v && !vistos[v]) { vistos[v] = true; valores.push(v); }
+  });
+  valores.sort(function(a,b){ return String(a).localeCompare(String(b), 'pt-BR'); });
+  sel.innerHTML = '<option value="">Todos</option>' + valores.map(function(v){
+    return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'+v+'</option>';
+  }).join('');
+  if (valores.indexOf(atual) !== -1) sel.value = atual;
+}
 function parseBRL(str){
   str = String(str || '').trim();
   if (!str) return 0;
@@ -533,7 +584,8 @@ function graphRowToRow(v, rowIndex){
     valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4]),
     anexo: v[5] || '',
     obs: v[6] || '',
-    chequeDe: v[7] || ''
+    chequeDe: v[7] || '',
+    status: v[8] || 'Aguardando'
   };
 }
 
@@ -839,6 +891,7 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_docAnexo').value = '';
   document.getElementById('nf_obs').value = entry.obs || '';
   document.getElementById('nf_chequeDe').value = entry.chequeDe || 'Urbano';
+  document.getElementById('nf_status').value = entry.status || 'Aguardando';
   setFormMode(true);
   togglePanel(true);
 }
@@ -850,7 +903,6 @@ function apenasNumeros(el){
   });
 }
 apenasNumeros(document.getElementById('nf_numero'));
-apenasNumeros(document.getElementById('f_numero'));
 function setFieldValid(el, valid){
   if (!el) return;
   var wrap = el.closest ? el.closest('.efield') : null;
@@ -868,7 +920,7 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
     submitBtn.textContent = on ? 'Enviando...' : submitBtnOriginalText;
   }
   try {
-    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor','nf_chequeDe'];
+    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor','nf_chequeDe','nf_status'];
     var ok = true;
     required.forEach(function(id){
       var el = document.getElementById(id);
@@ -910,11 +962,12 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var valor = parseBRL(document.getElementById('nf_valor').value);
         var obs = document.getElementById('nf_obs').value.trim();
         var chequeDe = document.getElementById('nf_chequeDe').value;
+        var status = document.getElementById('nf_status').value;
 
         var anexoUrl = isEditing ? (existing.anexo || '') : '';
         if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
 
-        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe ];
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe, status ];
 
         if (isEditing) {
           var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
@@ -959,6 +1012,11 @@ function anexoCellHtml(r){
     ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Cheque Anexo"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
     : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 }
+function statusCellHtml(r){
+  var st = r.status || 'Aguardando';
+  var cls = st === 'Pago' ? 'pago' : (st === 'Cancelado' ? 'cancelado' : 'aguardando');
+  return '<span class="pill '+cls+'">'+st+'</span>';
+}
 
 var COLUMNS = {
   dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
@@ -967,9 +1025,10 @@ var COLUMNS = {
   valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
   anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml },
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
-  chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } }
+  chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
+  status:      { label:'Status', width:120, render: statusCellHtml }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status'];
 
 function loadColumnOrder(){
   try {
@@ -1066,16 +1125,18 @@ function renderTableHead(){
 }
 
 function filtrados(){
-  var busca = (document.getElementById('f_busca').value || '').trim().toLowerCase();
-  var buscaNumero = (document.getElementById('f_numero').value || '').trim().toLowerCase();
+  var busca = document.getElementById('f_busca').value;
+  var buscaNumero = document.getElementById('f_numero').value;
   var de = document.getElementById('f_de').value;
   var chequeDe = document.getElementById('f_chequeDe').value;
+  var status = document.getElementById('f_status').value;
   var mesAno = document.getElementById('f_mesAno').value;
   return DATA.filter(function(r){
-    if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1) return false;
-    if (buscaNumero && r.numero.toLowerCase().indexOf(buscaNumero) === -1) return false;
+    if (busca && r.favorecido !== busca) return false;
+    if (buscaNumero && r.numero !== buscaNumero) return false;
     if (de && r.dataEnvio && r.dataEnvio < de) return false;
     if (chequeDe && r.chequeDe !== chequeDe) return false;
+    if (status && (r.status || 'Aguardando') !== status) return false;
     if (mesAno && (!r.dataEnvio || r.dataEnvio.slice(0,7) !== mesAno)) return false;
     return true;
   });
@@ -1083,6 +1144,8 @@ function filtrados(){
 
 function render(){
   buildMesAnoOptions();
+  buildSelectOptionsFromData('f_busca', 'favorecido');
+  buildSelectOptionsFromData('f_numero', 'numero');
   var rows = filtrados();
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
@@ -1152,22 +1215,18 @@ function render(){
   document.getElementById('kpiHoje').textContent = enviadosHoje;
 }
 
-document.getElementById('f_busca').value = '';
-document.getElementById('f_numero').value = '';
-document.getElementById('f_busca').addEventListener('input', render);
-document.getElementById('f_numero').addEventListener('input', render);
+document.getElementById('f_busca').addEventListener('change', render);
+document.getElementById('f_numero').addEventListener('change', render);
 document.getElementById('f_de').addEventListener('change', render);
 document.getElementById('f_chequeDe').addEventListener('change', render);
+document.getElementById('f_status').addEventListener('change', render);
 document.getElementById('f_mesAno').addEventListener('change', render);
-setTimeout(function(){
-  document.getElementById('f_busca').value = '';
-  document.getElementById('f_numero').value = '';
-}, 400);
 document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_busca').value = '';
   document.getElementById('f_numero').value = '';
   document.getElementById('f_de').value = '';
   document.getElementById('f_chequeDe').value = '';
+  document.getElementById('f_status').value = '';
   document.getElementById('f_mesAno').value = '';
   render();
 });
@@ -1304,7 +1363,7 @@ document.getElementById('semAcessoSairBtn').addEventListener('click', sair);
 document.getElementById('loginBtn').addEventListener('click', entrar);
 document.getElementById('logoutBtn').addEventListener('click', sair);
 
-var FILTER_KEYS = ['favorecido','numero','pagamento','chequeDe','mesAno'];
+var FILTER_KEYS = ['favorecido','numero','pagamento','chequeDe','status','mesAno'];
 function loadFilterOrder(){
   try {
     var saved = JSON.parse(localStorage.getItem('qc_filter_order_v1'));
