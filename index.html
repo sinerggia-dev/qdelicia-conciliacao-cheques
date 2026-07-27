@@ -284,7 +284,7 @@
         <input type="text" id="f_busca" name="qc_busca_favorecido" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
       </div>
       <div class="filter-field">
-        <label>Número do Cheque</label>
+        <label>Cheque</label>
         <input type="text" id="f_numero" name="qc_busca_numero" placeholder="Digite para filtrar..." autocomplete="new-password" data-lpignore="true" data-1p-ignore>
       </div>
       <div class="filter-field">
@@ -342,11 +342,11 @@
           <input type="date" id="nf_dataEnvio" required>
         </div>
         <div class="efield">
-          <label>Número do Cheque <span class="req">*</span></label>
+          <label>Cheque <span class="req">*</span></label>
           <input type="text" inputmode="numeric" id="nf_numero" placeholder="Ex.: 000123" required>
         </div>
         <div class="efield" style="grid-column:span 2;">
-          <label>Nome do Favorecido <span class="req">*</span></label>
+          <label>Favorecido <span class="req">*</span></label>
           <input type="text" id="nf_favorecido" placeholder="Ex.: João da Silva" required>
         </div>
         <div class="efield">
@@ -354,7 +354,7 @@
           <input type="text" inputmode="decimal" id="nf_valor" placeholder="Ex.: 1.250,00" required>
         </div>
         <div class="efield">
-          <label>Doc Cheque (anexo)</label>
+          <label>Cheque Anexo</label>
           <input type="file" id="nf_docAnexo" accept=".pdf,.jpg,.jpeg,.png">
         </div>
         <div class="efield">
@@ -878,7 +878,7 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
     var docInput = document.getElementById('nf_docAnexo');
     var docFile = docInput && docInput.files && docInput.files[0];
     if (docFile && docFile.size > MAX_FILE_BYTES){
-      showToast('Arquivo do Doc Cheque maior que 4MB — escolha um arquivo menor.');
+      showToast('Arquivo do Cheque Anexo maior que 4MB — escolha um arquivo menor.');
       return;
     }
 
@@ -946,16 +946,16 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
 
 function anexoCellHtml(r){
   return r.anexo
-    ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Doc Cheque"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
+    ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Cheque Anexo"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
     : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 }
 
 var COLUMNS = {
   dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
-  numero:      { label:'Número do Cheque',   width:150, render: function(r){ return r.numero; } },
-  favorecido:  { label:'Nome do Favorecido', width:240, render: function(r){ return r.favorecido; } },
+  numero:      { label:'Cheque',      width:150, render: function(r){ return r.numero; } },
+  favorecido:  { label:'Favorecido', width:240, render: function(r){ return r.favorecido; } },
   valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
-  anexo:       { label:'Doc Cheque', width:100, render: anexoCellHtml },
+  anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml },
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } }
 };
