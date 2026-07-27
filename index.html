@@ -146,10 +146,19 @@
   .row-edit:hover{background:var(--surface-3);color:var(--chart-soft);}
   .row-edit svg{width:13px;height:13px;}
 
+  .attach{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:6px;color:var(--chart-soft);
+    text-decoration:none;
+  }
+  .attach:hover{background:var(--surface-3);}
+  .attach svg{width:13px;height:13px;}
+  .attach.off{color:var(--ink-muted);opacity:.3;pointer-events:none;}
+
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
   .entry-panel form{padding:16px;}
-  .entry-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .entry-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
   @media (max-width:900px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
   .efield{display:flex;flex-direction:column;gap:5px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
@@ -300,7 +309,7 @@
         </div>
         <div class="efield">
           <label>Número do Cheque <span class="req">*</span></label>
-          <input type="text" id="nf_numero" placeholder="Ex.: 000123" required>
+          <input type="text" inputmode="numeric" id="nf_numero" placeholder="Ex.: 000123" required>
         </div>
         <div class="efield" style="grid-column:span 2;">
           <label>Nome do Favorecido <span class="req">*</span></label>
@@ -309,6 +318,10 @@
         <div class="efield">
           <label>Valor (R$) <span class="req">*</span></label>
           <input type="text" inputmode="decimal" id="nf_valor" placeholder="Ex.: 1.250,00" required>
+        </div>
+        <div class="efield">
+          <label>Doc Cheque (anexo)</label>
+          <input type="file" id="nf_docAnexo" accept=".pdf,.jpg,.jpeg,.png">
         </div>
       </div>
     </form>
@@ -333,6 +346,7 @@
             <th>Número do Cheque</th>
             <th>Nome do Favorecido</th>
             <th class="num">Valor</th>
+            <th>Doc Cheque</th>
             <th></th>
           </tr>
         </thead>
@@ -400,11 +414,15 @@ var ITEM_ID = '01ZF6ARXRU7Y7G4L7UOZAYVXCDR5WLFKKW';
 var TABLE_NAME = 'TabelaCheques';
 var USERS_TABLE_NAME = 'TabelaUsuariosCheques';
 var SENHA_ACAO = '727349';
+var ANEXOS_PATH = 'Qdelícia Frutas - 2026/Conciliação de Cheques/Anexos';
 
 var currentUserRole = null;
 var msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
 var currentAccount = null;
 
+function encodePath(path){
+  return path.split('/').map(encodeURIComponent).join('/');
+}
 function ddmmyyToISO(str){
   if (typeof str === 'number' || (typeof str === 'string' && /^\d+(\.\d+)?$/.test(str.trim()))) {
     var serial = Number(str);
@@ -452,8 +470,24 @@ function graphRowToRow(v, rowIndex){
     dataEnvio: ddmmyyToISO(v[1]),
     numero: String(v[2]||''),
     favorecido: String(v[3]||''),
-    valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4])
+    valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4]),
+    anexo: v[5] || ''
   };
+}
+
+async function subirAnexo(token, file, id){
+  var ext = (file.name.match(/\.[^.]+$/) || [''])[0];
+  var nomeArquivo = 'cheque-' + id + '-' + Date.now() + ext;
+  var caminho = encodePath(ANEXOS_PATH + '/' + nomeArquivo);
+  var url = GRAPH_BASE + '/drives/' + DRIVE_ID + '/root:/' + caminho + ':/content';
+  var resp = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': file.type || 'application/octet-stream' },
+    body: file
+  });
+  if (!resp.ok) { var t = await resp.text(); throw new Error('Falha ao enviar anexo (' + resp.status + '): ' + t); }
+  var json = await resp.json();
+  return json.webUrl || '';
 }
 
 function salvarContaAtiva(homeAccountId){
@@ -740,9 +774,19 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_numero').value = entry.numero || '';
   document.getElementById('nf_favorecido').value = entry.favorecido || '';
   document.getElementById('nf_valor').value = String(entry.valor).replace('.', ',');
+  document.getElementById('nf_docAnexo').value = '';
   setFormMode(true);
   togglePanel(true);
 }
+
+function apenasNumeros(el){
+  el.addEventListener('input', function(){
+    var v = el.value.replace(/\D/g, '');
+    if (v !== el.value) el.value = v;
+  });
+}
+apenasNumeros(document.getElementById('nf_numero'));
+apenasNumeros(document.getElementById('f_numero'));
 function setFieldValid(el, valid){
   if (!el) return;
   var wrap = el.closest ? el.closest('.efield') : null;
@@ -776,6 +820,14 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
 
     if (!ok){ showToast('Preencha os campos obrigatórios (*) com valores válidos.'); return; }
 
+    var MAX_FILE_BYTES = 4 * 1024 * 1024;
+    var docInput = document.getElementById('nf_docAnexo');
+    var docFile = docInput && docInput.files && docInput.files[0];
+    if (docFile && docFile.size > MAX_FILE_BYTES){
+      showToast('Arquivo do Doc Cheque maior que 4MB — escolha um arquivo menor.');
+      return;
+    }
+
     var finishSubmit = async function(){
       try {
         if (!currentAccount) { showToast('Entre com sua conta Microsoft primeiro.'); return; }
@@ -793,7 +845,10 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var favorecido = document.getElementById('nf_favorecido').value.trim();
         var valor = parseBRL(document.getElementById('nf_valor').value);
 
-        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor ];
+        var anexoUrl = isEditing ? (existing.anexo || '') : '';
+        if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
+
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl ];
 
         if (isEditing) {
           var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
@@ -850,7 +905,7 @@ function render(){
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="5" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
   } else {
     var sorted = rows.slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
     var podeEditar = currentUserRole === 'Editor';
@@ -859,11 +914,15 @@ function render(){
         ? '<button type="button" class="row-edit" data-rawid="'+r.id+'" title="Editar"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
           + '<button type="button" class="row-del" data-rawid="'+r.id+'" title="Excluir"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
         : '';
+      var anexoCell = r.anexo
+        ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Doc Cheque"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
+        : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
       return '<tr>'
         + '<td>'+fmtDateBR(r.dataEnvio)+'</td>'
         + '<td>'+r.numero+'</td>'
         + '<td>'+r.favorecido+'</td>'
         + '<td class="num">'+brl(r.valor)+'</td>'
+        + '<td>'+anexoCell+'</td>'
         + '<td style="white-space:nowrap;">'+acoes+'</td>'
         + '</tr>';
     }).join('');
@@ -900,7 +959,7 @@ function render(){
   }
   var footRow = document.getElementById('tableFootRow');
   var totalValor = rows.reduce(function(s,r){ return s + r.valor; }, 0);
-  footRow.innerHTML = '<td>Total</td><td></td><td></td><td class="num">'+brl(totalValor)+'</td><td></td>';
+  footRow.innerHTML = '<td>Total</td><td></td><td></td><td class="num">'+brl(totalValor)+'</td><td></td><td></td>';
 
   document.getElementById('kpiQtd').textContent = rows.length;
   document.getElementById('kpiTotal').textContent = brl(totalValor);
