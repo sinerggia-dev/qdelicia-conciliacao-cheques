@@ -1293,6 +1293,10 @@ function renderTableHead(){
 
     headRow.appendChild(th);
   });
+  var colAcoes = document.createElement('col');
+  colAcoes.style.width = '110px';
+  colgroup.appendChild(colAcoes);
+
   var thAcoes = document.createElement('th');
   thAcoes.className = 'sticky-actions';
   headRow.appendChild(thAcoes);
