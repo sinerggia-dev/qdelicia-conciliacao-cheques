@@ -90,10 +90,10 @@
   .filter-field input:focus{outline:2px solid var(--chart);outline-offset:1px;}
   @media (max-width:640px){ .filter-field{width:calc(50% - 5px);} }
   .filters-row{
-    display:flex;justify-content:space-between;align-items:center;
-    gap:16px;flex-wrap:wrap;margin-bottom:18px;flex:none;
+    display:flex;justify-content:flex-start;align-items:center;
+    gap:24px;flex-wrap:wrap;margin-bottom:18px;flex:none;
   }
-  .filters{margin-bottom:0;justify-content:flex-end;}
+  .filters{margin-bottom:0;justify-content:flex-start;}
 
   .kpis{display:flex;gap:10px;flex:none;flex-wrap:wrap;}
   .kpi{
@@ -175,12 +175,12 @@
   .efield{display:flex;flex-direction:column;gap:5px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
   .efield label .req{color:var(--critical);}
-  .efield input, .efield textarea{
+  .efield input, .efield textarea, .efield select{
     background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
     font:13px var(--sans);padding:8px 10px;border-radius:7px;width:100%;
   }
   .efield textarea{resize:vertical;min-height:48px;font-family:var(--sans);}
-  .efield input:focus, .efield textarea:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
+  .efield input:focus, .efield textarea:focus, .efield select:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
   .efield.invalid input{border-color:var(--critical);}
   .entry-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
   .ebtn{
@@ -343,6 +343,13 @@
           <label>Doc Cheque (anexo)</label>
           <input type="file" id="nf_docAnexo" accept=".pdf,.jpg,.jpeg,.png">
         </div>
+        <div class="efield">
+          <label>Cheque De: <span class="req">*</span></label>
+          <select id="nf_chequeDe" required>
+            <option value="Urbano">Urbano</option>
+            <option value="Genivaldo">Genivaldo</option>
+          </select>
+        </div>
         <div class="efield" style="grid-column:1/-1;">
           <label>Observação</label>
           <textarea id="nf_obs" placeholder="Opcional"></textarea>
@@ -480,7 +487,8 @@ function graphRowToRow(v, rowIndex){
     favorecido: String(v[3]||''),
     valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4]),
     anexo: v[5] || '',
-    obs: v[6] || ''
+    obs: v[6] || '',
+    chequeDe: v[7] || ''
   };
 }
 
@@ -785,6 +793,7 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_valor').value = String(entry.valor).replace('.', ',');
   document.getElementById('nf_docAnexo').value = '';
   document.getElementById('nf_obs').value = entry.obs || '';
+  document.getElementById('nf_chequeDe').value = entry.chequeDe || 'Urbano';
   setFormMode(true);
   togglePanel(true);
 }
@@ -814,7 +823,7 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
     submitBtn.textContent = on ? 'Enviando...' : submitBtnOriginalText;
   }
   try {
-    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor'];
+    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor','nf_chequeDe'];
     var ok = true;
     required.forEach(function(id){
       var el = document.getElementById(id);
@@ -855,11 +864,12 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var favorecido = document.getElementById('nf_favorecido').value.trim();
         var valor = parseBRL(document.getElementById('nf_valor').value);
         var obs = document.getElementById('nf_obs').value.trim();
+        var chequeDe = document.getElementById('nf_chequeDe').value;
 
         var anexoUrl = isEditing ? (existing.anexo || '') : '';
         if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
 
-        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs ];
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe ];
 
         if (isEditing) {
           var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
@@ -911,9 +921,10 @@ var COLUMNS = {
   favorecido:  { label:'Nome do Favorecido', width:240, render: function(r){ return r.favorecido; } },
   valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
   anexo:       { label:'Doc Cheque', width:100, render: anexoCellHtml },
-  obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } }
+  obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
+  chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe'];
 
 function loadColumnOrder(){
   try {
