@@ -586,7 +586,13 @@ function graphRowToRow(v, rowIndex){
     obs: v[6] || '',
     chequeDe: v[7] || '',
     status: v[8] || 'Aguardando',
-    dadosCheque: v[9] || ''
+    banco: v[9] || '',
+    cooperativa: v[10] || '',
+    conta: v[11] || '',
+    titular: v[12] || '',
+    cpf: v[13] || '',
+    vinculo: v[14] || '',
+    clienteDesde: v[15] || ''
   };
 }
 
@@ -1028,9 +1034,15 @@ var COLUMNS = {
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
   status:      { label:'Status', width:120, render: statusCellHtml },
-  dadosCheque: { label:'Dados do Cheque', width:220, titleAttr: function(r){ return (r.dadosCheque||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.dadosCheque || ''; } }
+  banco:        { label:'Banco', width:160, render: function(r){ return r.banco || ''; } },
+  cooperativa:  { label:'Cooperativa', width:110, render: function(r){ return r.cooperativa || ''; } },
+  conta:        { label:'Conta', width:130, render: function(r){ return r.conta || ''; } },
+  titular:      { label:'Titular', width:220, render: function(r){ return r.titular || ''; } },
+  cpf:          { label:'CPF', width:130, render: function(r){ return r.cpf || ''; } },
+  vinculo:      { label:'Vínculo', width:130, render: function(r){ return r.vinculo || ''; } },
+  clienteDesde: { label:'Cliente Desde', width:110, render: function(r){ return r.clienteDesde || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','dadosCheque'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde'];
 
 function loadColumnOrder(){
   try {
