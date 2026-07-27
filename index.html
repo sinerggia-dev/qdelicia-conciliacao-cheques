@@ -89,6 +89,7 @@
   }
   .filter-field input:focus{outline:2px solid var(--chart);outline-offset:1px;}
   @media (max-width:640px){ .filter-field{width:calc(50% - 5px);} }
+  .filters{justify-content:flex-end;}
 
   .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;flex:none;}
   @media (max-width:640px){ .kpis{grid-template-columns:repeat(1,1fr);} }
@@ -114,11 +115,18 @@
   table.chq{width:100%;border-collapse:collapse;font-size:12.5px;}
   table.chq thead th{
     position:sticky;top:0;background:var(--surface-2);
-    text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;
+    text-align:left;padding:8px 18px 8px 10px;font-size:10px;text-transform:uppercase;
     letter-spacing:.04em;color:var(--ink-muted);border-bottom:1px solid var(--border);
-    white-space:nowrap;z-index:1;
+    white-space:nowrap;z-index:1;cursor:grab;box-sizing:border-box;
   }
   table.chq thead th.num{text-align:right;}
+  table.chq thead th.dragging-col{opacity:.35;}
+  table.chq thead th.drop-target{outline:2px dashed var(--chart);outline-offset:-2px;}
+  .col-resizer{
+    position:absolute;top:0;right:0;width:8px;height:100%;
+    cursor:col-resize;user-select:none;z-index:2;
+  }
+  .col-resizer:hover, .col-resizer.resizing{background:var(--chart);}
   table.chq tbody td{
     padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink);
   }
@@ -330,7 +338,7 @@
   <div class="kpis" id="kpis">
     <div class="kpi"><div class="v" id="kpiQtd">0</div><div class="l">Cheques lançados</div></div>
     <div class="kpi"><div class="v" id="kpiTotal">R$ 0,00</div><div class="l">Valor total</div></div>
-    <div class="kpi"><div class="v" id="kpiMedio">R$ 0,00</div><div class="l">Valor médio</div></div>
+    <div class="kpi"><div class="v" id="kpiHoje">0</div><div class="l">Enviados hoje</div></div>
   </div>
 
   <div class="panel">
@@ -340,15 +348,9 @@
     </div>
     <div class="table-scroll">
       <table class="chq" id="chqTable">
+        <colgroup id="tableColgroup"></colgroup>
         <thead>
-          <tr>
-            <th>Data de Envio</th>
-            <th>Número do Cheque</th>
-            <th>Nome do Favorecido</th>
-            <th class="num">Valor</th>
-            <th>Doc Cheque</th>
-            <th></th>
-          </tr>
+          <tr id="tableHeadRow"></tr>
         </thead>
         <tbody id="tableBody"></tbody>
         <tfoot><tr id="tableFootRow"></tr></tfoot>
@@ -888,6 +890,115 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
   }
 });
 
+function anexoCellHtml(r){
+  return r.anexo
+    ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Doc Cheque"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
+    : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+}
+
+var COLUMNS = {
+  dataEnvio:  { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
+  numero:     { label:'Número do Cheque',   width:150, render: function(r){ return r.numero; } },
+  favorecido: { label:'Nome do Favorecido', width:240, render: function(r){ return r.favorecido; } },
+  valor:      { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
+  anexo:      { label:'Doc Cheque', width:100, render: anexoCellHtml }
+};
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo'];
+
+function loadColumnOrder(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_column_order_v1'));
+    if (Array.isArray(saved) && saved.every(function(k){ return COLUMNS.hasOwnProperty(k); })){
+      DEFAULT_COLUMN_ORDER.forEach(function(k){ if (saved.indexOf(k) === -1) saved.push(k); });
+      return saved;
+    }
+  } catch(e){}
+  return DEFAULT_COLUMN_ORDER.slice();
+}
+function saveColumnOrder(order){ try{ localStorage.setItem('qc_column_order_v1', JSON.stringify(order)); }catch(e){} }
+function loadColumnWidths(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_column_widths_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveColumnWidths(w){ try{ localStorage.setItem('qc_column_widths_v1', JSON.stringify(w)); }catch(e){} }
+
+var columnOrder = loadColumnOrder();
+var columnWidths = loadColumnWidths();
+
+function renderTableHead(){
+  var colgroup = document.getElementById('tableColgroup');
+  var headRow = document.getElementById('tableHeadRow');
+  colgroup.innerHTML = '';
+  headRow.innerHTML = '';
+  columnOrder.forEach(function(key){
+    var col = COLUMNS[key];
+    var colEl = document.createElement('col');
+    colEl.style.width = (columnWidths[key] || col.width || 120) + 'px';
+    colgroup.appendChild(colEl);
+
+    var th = document.createElement('th');
+    th.className = col.cls || '';
+    th.draggable = true;
+    th.setAttribute('data-key', key);
+    var labelSpan = document.createElement('span');
+    labelSpan.textContent = col.label;
+    th.appendChild(labelSpan);
+
+    var resizer = document.createElement('div');
+    resizer.className = 'col-resizer';
+    resizer.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    th.appendChild(resizer);
+
+    th.addEventListener('dragstart', function(ev){
+      ev.dataTransfer.setData('text/plain', key);
+      th.classList.add('dragging-col');
+    });
+    th.addEventListener('dragend', function(){ th.classList.remove('dragging-col'); });
+    th.addEventListener('dragover', function(ev){ ev.preventDefault(); th.classList.add('drop-target'); });
+    th.addEventListener('dragleave', function(){ th.classList.remove('drop-target'); });
+    th.addEventListener('drop', function(ev){
+      ev.preventDefault();
+      th.classList.remove('drop-target');
+      var draggedKey = ev.dataTransfer.getData('text/plain');
+      if (!draggedKey || draggedKey === key) return;
+      var from = columnOrder.indexOf(draggedKey);
+      var to = columnOrder.indexOf(key);
+      if (from === -1 || to === -1) return;
+      columnOrder.splice(from, 1);
+      columnOrder.splice(to, 0, draggedKey);
+      saveColumnOrder(columnOrder);
+      renderTableHead();
+      render();
+    });
+
+    resizer.addEventListener('mousedown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      resizer.classList.add('resizing');
+      var startX = ev.clientX;
+      var startWidth = colEl.getBoundingClientRect().width;
+      function onMove(e2){
+        var newWidth = Math.max(50, Math.round(startWidth + (e2.clientX - startX)));
+        colEl.style.width = newWidth + 'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('resizing');
+        columnWidths[key] = parseInt(colEl.style.width, 10);
+        saveColumnWidths(columnWidths);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    headRow.appendChild(th);
+  });
+  headRow.appendChild(document.createElement('th'));
+}
+
 function filtrados(){
   var busca = (document.getElementById('f_busca').value || '').trim().toLowerCase();
   var buscaNumero = (document.getElementById('f_numero').value || '').trim().toLowerCase();
@@ -905,7 +1016,7 @@ function render(){
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="6" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
+    body.innerHTML = '<tr><td colspan="'+(columnOrder.length+1)+'" class="empty-note">Nenhum cheque para os filtros selecionados.</td></tr>';
   } else {
     var sorted = rows.slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
     var podeEditar = currentUserRole === 'Editor';
@@ -914,17 +1025,11 @@ function render(){
         ? '<button type="button" class="row-edit" data-rawid="'+r.id+'" title="Editar"><svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
           + '<button type="button" class="row-del" data-rawid="'+r.id+'" title="Excluir"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
         : '';
-      var anexoCell = r.anexo
-        ? '<a class="attach" href="'+r.anexo+'" target="_blank" rel="noopener" title="Abrir Doc Cheque"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'
-        : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
-      return '<tr>'
-        + '<td>'+fmtDateBR(r.dataEnvio)+'</td>'
-        + '<td>'+r.numero+'</td>'
-        + '<td>'+r.favorecido+'</td>'
-        + '<td class="num">'+brl(r.valor)+'</td>'
-        + '<td>'+anexoCell+'</td>'
-        + '<td style="white-space:nowrap;">'+acoes+'</td>'
-        + '</tr>';
+      var cells = columnOrder.map(function(key){
+        var col = COLUMNS[key];
+        return '<td class="'+(col.cellCls||'')+'">'+col.render(r)+'</td>';
+      }).join('');
+      return '<tr>' + cells + '<td style="white-space:nowrap;">'+acoes+'</td></tr>';
     }).join('');
     body.querySelectorAll('.row-edit').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -959,11 +1064,20 @@ function render(){
   }
   var footRow = document.getElementById('tableFootRow');
   var totalValor = rows.reduce(function(s,r){ return s + r.valor; }, 0);
-  footRow.innerHTML = '<td>Total</td><td></td><td></td><td class="num">'+brl(totalValor)+'</td><td></td><td></td>';
+  var totals = { valor: totalValor };
+  var footCells = columnOrder.map(function(key, i){
+    if (i === 0) return '<td>Total</td>';
+    if (totals.hasOwnProperty(key)) return '<td class="num">'+brl(totals[key])+'</td>';
+    return '<td></td>';
+  }).join('');
+  footRow.innerHTML = footCells + '<td></td>';
+
+  var hojeISO = new Date().toISOString().slice(0,10);
+  var enviadosHoje = DATA.filter(function(r){ return r.dataEnvio === hojeISO; }).length;
 
   document.getElementById('kpiQtd').textContent = rows.length;
   document.getElementById('kpiTotal').textContent = brl(totalValor);
-  document.getElementById('kpiMedio').textContent = brl(rows.length ? totalValor/rows.length : 0);
+  document.getElementById('kpiHoje').textContent = enviadosHoje;
 }
 
 document.getElementById('f_busca').value = '';
@@ -1114,6 +1228,7 @@ document.getElementById('semAcessoSairBtn').addEventListener('click', sair);
 document.getElementById('loginBtn').addEventListener('click', entrar);
 document.getElementById('logoutBtn').addEventListener('click', sair);
 
+renderTableHead();
 initAuth();
 </script>
 
