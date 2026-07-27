@@ -80,22 +80,16 @@
   .user-chip svg{width:15px;height:15px;flex:none;color:var(--ink-muted);}
 
   .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;flex:none;}
-  .filter-field{flex:0 0 auto;width:150px;position:relative;}
-  .filter-label-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
-  .filter-label-row label{margin-bottom:0 !important;}
-  .filter-move{display:flex;gap:2px;flex:none;}
-  .filter-move-btn{
-    width:15px;height:15px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-strong);
-    color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:7px;padding:0;line-height:1;
-  }
-  .filter-move-btn:hover{background:var(--surface);color:var(--ink);border-color:var(--chart);}
+  .filter-field{flex:0 0 auto;width:150px;position:relative;cursor:grab;}
+  .filter-field.dragging-filter{opacity:.35;}
+  .filter-field.drop-target-filter{outline:2px dashed var(--chart);outline-offset:2px;border-radius:8px;}
   .filter-field label{
     display:block;font-size:10px;color:var(--ink-muted);
     text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;
   }
   .filter-field input, .filter-field select{
     width:100%;background:var(--surface);border:1px solid var(--border);color:var(--ink);
-    font:12px var(--sans);padding:7px 8px;border-radius:7px;
+    font:12px var(--sans);padding:7px 8px;border-radius:7px;cursor:auto;
   }
   .filter-field input:focus, .filter-field select:focus{outline:2px solid var(--chart);outline-offset:1px;}
   @media (max-width:640px){ .filter-field{width:calc(50% - 5px);} }
@@ -1501,48 +1495,33 @@ function applyFilterOrder(){
   });
 }
 
-function moverFiltro(key, delta){
-  pedirSenha('Digite a senha para mover este filtro:', function(ok){
-    if (!ok) return;
-    var pos = filterOrder.indexOf(key);
-    var novaPos = pos + delta;
-    if (novaPos < 0 || novaPos >= filterOrder.length) return;
-    var vizinho = filterOrder[novaPos];
-    filterOrder[pos] = vizinho;
-    filterOrder[novaPos] = key;
-    saveFilterOrder(filterOrder);
-    applyFilterOrder();
-  });
-}
+function setupFilterDragReorder(){
+  document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(field){
+    field.draggable = true;
+    var control = field.querySelector('input, select');
+    if (control) control.draggable = false;
 
-function addFilterMoveButtons(){
-  document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(wrap){
-    var key = wrap.getAttribute('data-filter-key');
-    var label = wrap.querySelector('label');
-    if (!label || label.closest('.filter-label-row')) return;
-
-    var row = document.createElement('div');
-    row.className = 'filter-label-row';
-    wrap.insertBefore(row, label);
-    row.appendChild(label);
-
-    var moveWrap = document.createElement('div');
-    moveWrap.className = 'filter-move';
-    var leftBtn = document.createElement('button');
-    leftBtn.type = 'button';
-    leftBtn.className = 'filter-move-btn';
-    leftBtn.title = 'Mover uma posição para a esquerda';
-    leftBtn.textContent = '◀';
-    var rightBtn = document.createElement('button');
-    rightBtn.type = 'button';
-    rightBtn.className = 'filter-move-btn';
-    rightBtn.title = 'Mover uma posição para a direita';
-    rightBtn.textContent = '▶';
-    leftBtn.addEventListener('click', function(ev){ ev.stopPropagation(); moverFiltro(key, -1); });
-    rightBtn.addEventListener('click', function(ev){ ev.stopPropagation(); moverFiltro(key, 1); });
-    moveWrap.appendChild(leftBtn);
-    moveWrap.appendChild(rightBtn);
-    row.appendChild(moveWrap);
+    field.addEventListener('dragstart', function(ev){
+      ev.dataTransfer.setData('text/plain', field.getAttribute('data-filter-key'));
+      field.classList.add('dragging-filter');
+    });
+    field.addEventListener('dragend', function(){ field.classList.remove('dragging-filter'); });
+    field.addEventListener('dragover', function(ev){ ev.preventDefault(); field.classList.add('drop-target-filter'); });
+    field.addEventListener('dragleave', function(){ field.classList.remove('drop-target-filter'); });
+    field.addEventListener('drop', function(ev){
+      ev.preventDefault();
+      field.classList.remove('drop-target-filter');
+      var draggedKey = ev.dataTransfer.getData('text/plain');
+      var key = field.getAttribute('data-filter-key');
+      if (!draggedKey || draggedKey === key) return;
+      var from = filterOrder.indexOf(draggedKey);
+      var to = filterOrder.indexOf(key);
+      if (from === -1 || to === -1) return;
+      filterOrder.splice(from, 1);
+      filterOrder.splice(to, 0, draggedKey);
+      saveFilterOrder(filterOrder);
+      applyFilterOrder();
+    });
   });
 }
 
@@ -1562,7 +1541,7 @@ document.addEventListener('keydown', function(ev){
 });
 
 applyFilterOrder();
-addFilterMoveButtons();
+setupFilterDragReorder();
 renderTableHead();
 initAuth();
 </script>
