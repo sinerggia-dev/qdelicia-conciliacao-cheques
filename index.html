@@ -443,6 +443,10 @@
     <div class="panel-head">
       <h2>Cheques</h2>
       <div style="display:flex;align-items:center;gap:10px;">
+        <button class="clear-btn" id="exportExcelBtn" type="button" title="Exportar tabela para Excel">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          Exportar Excel
+        </button>
         <div class="columns-manage-wrap" id="columnsManageWrap">
           <button class="clear-btn" id="columnsManageBtn" type="button" title="Mostrar/ocultar colunas">
             <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -499,6 +503,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 var DATA = [];
 
@@ -1074,15 +1079,29 @@ function statusCellHtml(r){
   return '<span class="pill '+cls+'">'+st+'</span>';
 }
 
+function confrontoCheque(r){
+  var digitado = String(r.numero||'').replace(/\D/g, '');
+  var impresso = String(r.numeroImpresso||'').replace(/\D/g, '');
+  if (!impresso) return { cls: 'aguardando', texto: 'Sem impresso' };
+  var diff = parseInt(digitado||'0', 10) - parseInt(impresso||'0', 10);
+  if (diff === 0) return { cls: 'pago', texto: 'Confere' };
+  return { cls: 'cancelado', texto: 'Diverge (' + diff + ')' };
+}
+function confrontoChequeCellHtml(r){
+  var c = confrontoCheque(r);
+  return '<span class="pill '+c.cls+'">'+c.texto+'</span>';
+}
+
 var COLUMNS = {
   dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
   numero:      { label:'Cheque (Digitado)', width:150, render: function(r){ return r.numero; } },
   favorecido:  { label:'Favorecido', width:240, render: function(r){ return r.favorecido; } },
   valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
-  anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml },
+  anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml, exportValue: function(r){ return r.anexo || ''; } },
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
-  status:      { label:'Status', width:120, render: statusCellHtml },
+  status:      { label:'Status', width:120, render: statusCellHtml, exportValue: function(r){ return r.status || 'Aguardando'; } },
+  confronto:   { label:'Confronto Cheque', width:150, render: confrontoChequeCellHtml, exportValue: function(r){ return confrontoCheque(r).texto; } },
   banco:        { label:'Banco', width:160, render: function(r){ return r.banco || ''; } },
   cooperativa:  { label:'Cooperativa', width:110, render: function(r){ return r.cooperativa || ''; } },
   conta:        { label:'Conta', width:130, render: function(r){ return r.conta || ''; } },
@@ -1097,7 +1116,7 @@ var COLUMNS = {
   numeroImpresso: { label:'Cheque N° (Impresso)', width:150, render: function(r){ return r.numeroImpresso || ''; } },
   talao:        { label:'Talão', width:220, titleAttr: function(r){ return (r.talao||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.talao || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','confronto','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
 
 function loadColumnOrder(){
   try {
@@ -1273,6 +1292,25 @@ function filtrados(){
     if (mesAno && (!r.dataEnvio || r.dataEnvio.slice(0,7) !== mesAno)) return false;
     return true;
   });
+}
+
+function getExportValue(col, r){
+  return col.exportValue ? col.exportValue(r) : col.render(r);
+}
+
+function exportarExcel(){
+  var rows = filtrados().slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
+  var cols = visibleColumnOrder();
+  var headers = cols.map(function(key){ return COLUMNS[key].label; });
+  var dados = rows.map(function(r){
+    return cols.map(function(key){ return getExportValue(COLUMNS[key], r); });
+  });
+  var ws = XLSX.utils.aoa_to_sheet([headers].concat(dados));
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cheques');
+  var hoje = new Date();
+  var dataStr = String(hoje.getDate()).padStart(2,'0') + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + hoje.getFullYear();
+  XLSX.writeFile(wb, 'Cheques_' + dataStr + '.xlsx');
 }
 
 function render(){
@@ -1649,6 +1687,14 @@ function setupEntryFieldResize(){
     field.appendChild(resizer);
   });
 }
+
+document.getElementById('exportExcelBtn').addEventListener('click', function(){
+  try {
+    exportarExcel();
+  } catch (err) {
+    showToast('Erro ao exportar: ' + (err && err.message ? err.message : err));
+  }
+});
 
 document.getElementById('columnsManageBtn').addEventListener('click', function(ev){
   ev.stopPropagation();
