@@ -83,6 +83,11 @@
   .filter-field{flex:0 0 auto;width:150px;position:relative;cursor:grab;}
   .filter-field.dragging-filter{opacity:.35;}
   .filter-field.drop-target-filter{outline:2px dashed var(--chart);outline-offset:2px;border-radius:8px;}
+  .filter-resizer{
+    position:absolute;top:0;right:-8px;width:12px;height:100%;
+    cursor:col-resize;user-select:none;z-index:5;
+  }
+  .filter-resizer:hover, .filter-resizer.resizing{background:rgba(57,135,229,.35);border-radius:4px;}
   .filter-field label{
     display:block;font-size:10px;color:var(--ink-muted);
     text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;
@@ -1587,6 +1592,54 @@ function setupFilterDragReorder(){
   });
 }
 
+function loadFilterWidths(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_filter_widths_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveFilterWidths(w){ try{ localStorage.setItem('qc_filter_widths_v1', JSON.stringify(w)); }catch(e){} }
+var filterWidths = loadFilterWidths();
+
+function applyFilterWidths(){
+  document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(field){
+    var key = field.getAttribute('data-filter-key');
+    if (filterWidths[key]) field.style.width = filterWidths[key] + 'px';
+  });
+}
+
+function setupFilterResize(){
+  document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(field){
+    var key = field.getAttribute('data-filter-key');
+    var resizer = document.createElement('div');
+    resizer.className = 'filter-resizer';
+    resizer.draggable = false;
+    resizer.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    resizer.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+    resizer.addEventListener('mousedown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      resizer.classList.add('resizing');
+      var startX = ev.clientX;
+      var startWidth = field.getBoundingClientRect().width;
+      function onMove(e2){
+        var newWidth = Math.max(100, Math.round(startWidth + (e2.clientX - startX)));
+        field.style.width = newWidth + 'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('resizing');
+        filterWidths[key] = parseInt(field.style.width, 10);
+        saveFilterWidths(filterWidths);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    field.appendChild(resizer);
+  });
+}
+
 var ENTRY_FIELD_KEYS = ['dataEnvio','numero','favorecido','valor','docAnexo','chequeDe','status','obs'];
 function loadEntryFieldOrder(){
   try {
@@ -1713,6 +1766,8 @@ document.addEventListener('keydown', function(ev){
 
 applyFilterOrder();
 setupFilterDragReorder();
+applyFilterWidths();
+setupFilterResize();
 applyEntryFieldOrder();
 setupEntryFieldDragReorder();
 applyEntryFieldWidths();
