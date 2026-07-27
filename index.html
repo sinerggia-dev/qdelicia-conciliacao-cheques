@@ -299,6 +299,12 @@
           <option value="Genivaldo">Genivaldo</option>
         </select>
       </div>
+      <div class="filter-field">
+        <label>Mês/Ano</label>
+        <select id="f_mesAno">
+          <option value="">Todos</option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -472,6 +478,27 @@ function fmtDateBR(iso){
   var p = String(iso).split('-');
   if (p.length !== 3) return '';
   return p[2] + '/' + p[1] + '/' + p[0];
+}
+var NOMES_MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function mesAnoLabel(chave){
+  var p = chave.split('-');
+  return NOMES_MESES[Number(p[1])-1] + '/' + p[0];
+}
+function buildMesAnoOptions(){
+  var sel = document.getElementById('f_mesAno');
+  var atual = sel.value;
+  var vistos = {};
+  var chaves = [];
+  DATA.forEach(function(r){
+    if (!r.dataEnvio) return;
+    var chave = r.dataEnvio.slice(0,7);
+    if (!vistos[chave]) { vistos[chave] = true; chaves.push(chave); }
+  });
+  chaves.sort().reverse();
+  sel.innerHTML = '<option value="">Todos</option>' + chaves.map(function(chave){
+    return '<option value="'+chave+'">'+mesAnoLabel(chave)+'</option>';
+  }).join('');
+  if (chaves.indexOf(atual) !== -1) sel.value = atual;
 }
 function parseBRL(str){
   str = String(str || '').trim();
@@ -1033,16 +1060,19 @@ function filtrados(){
   var buscaNumero = (document.getElementById('f_numero').value || '').trim().toLowerCase();
   var de = document.getElementById('f_de').value;
   var chequeDe = document.getElementById('f_chequeDe').value;
+  var mesAno = document.getElementById('f_mesAno').value;
   return DATA.filter(function(r){
     if (busca && r.favorecido.toLowerCase().indexOf(busca) === -1) return false;
     if (buscaNumero && r.numero.toLowerCase().indexOf(buscaNumero) === -1) return false;
     if (de && r.dataEnvio && r.dataEnvio < de) return false;
     if (chequeDe && r.chequeDe !== chequeDe) return false;
+    if (mesAno && (!r.dataEnvio || r.dataEnvio.slice(0,7) !== mesAno)) return false;
     return true;
   });
 }
 
 function render(){
+  buildMesAnoOptions();
   var rows = filtrados();
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
@@ -1118,6 +1148,7 @@ document.getElementById('f_busca').addEventListener('input', render);
 document.getElementById('f_numero').addEventListener('input', render);
 document.getElementById('f_de').addEventListener('change', render);
 document.getElementById('f_chequeDe').addEventListener('change', render);
+document.getElementById('f_mesAno').addEventListener('change', render);
 setTimeout(function(){
   document.getElementById('f_busca').value = '';
   document.getElementById('f_numero').value = '';
@@ -1127,6 +1158,7 @@ document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_numero').value = '';
   document.getElementById('f_de').value = '';
   document.getElementById('f_chequeDe').value = '';
+  document.getElementById('f_mesAno').value = '';
   render();
 });
 
