@@ -168,6 +168,10 @@
     font-weight:700;border-top:1px solid var(--border-strong);
     background:var(--surface-2);position:sticky;bottom:0;
   }
+  table.chq th.sticky-actions{position:sticky;right:0;background:var(--surface-2);z-index:3;}
+  table.chq td.sticky-actions{position:sticky;right:0;background:var(--surface);z-index:2;box-shadow:-4px 0 6px -4px rgba(0,0,0,.5);}
+  table.chq tbody tr:hover td.sticky-actions{background:var(--surface-2);}
+  table.chq tfoot td.sticky-actions{position:sticky;right:0;z-index:3;}
   .empty-note{padding:20px 16px;text-align:center;color:var(--ink-muted);font-size:12px;}
 
   .row-del{
@@ -1287,7 +1291,9 @@ function renderTableHead(){
 
     headRow.appendChild(th);
   });
-  headRow.appendChild(document.createElement('th'));
+  var thAcoes = document.createElement('th');
+  thAcoes.className = 'sticky-actions';
+  headRow.appendChild(thAcoes);
 }
 
 function filtrados(){
@@ -1351,7 +1357,7 @@ function render(){
         var titleAttr = col.titleAttr ? ' title="'+col.titleAttr(r)+'"' : '';
         return '<td class="'+(col.cellCls||'')+'"'+titleAttr+'>'+col.render(r)+'</td>';
       }).join('');
-      return '<tr>' + cells + '<td style="white-space:nowrap;">'+acoes+'</td></tr>';
+      return '<tr>' + cells + '<td class="sticky-actions" style="white-space:nowrap;">'+acoes+'</td></tr>';
     }).join('');
     body.querySelectorAll('.row-transform').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -1401,7 +1407,7 @@ function render(){
     if (totals.hasOwnProperty(key)) return '<td class="num">'+brl(totals[key])+'</td>';
     return '<td></td>';
   }).join('');
-  footRow.innerHTML = footCells + '<td></td>';
+  footRow.innerHTML = footCells + '<td class="sticky-actions"></td>';
 
   var hojeISO = new Date().toISOString().slice(0,10);
   var enviadosHoje = DATA.filter(function(r){ return r.dataEnvio === hojeISO; }).length;
