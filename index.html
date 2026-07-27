@@ -132,6 +132,7 @@
   .col-resizer:hover, .col-resizer.resizing{background:var(--chart);}
   table.chq tbody td{
     padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
   }
   table.chq tbody td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;}
   table.chq tbody tr:hover td{background:var(--surface-2);}
@@ -174,11 +175,12 @@
   .efield{display:flex;flex-direction:column;gap:5px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
   .efield label .req{color:var(--critical);}
-  .efield input{
+  .efield input, .efield textarea{
     background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
     font:13px var(--sans);padding:8px 10px;border-radius:7px;width:100%;
   }
-  .efield input:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
+  .efield textarea{resize:vertical;min-height:48px;font-family:var(--sans);}
+  .efield input:focus, .efield textarea:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
   .efield.invalid input{border-color:var(--critical);}
   .entry-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
   .ebtn{
@@ -341,6 +343,10 @@
           <label>Doc Cheque (anexo)</label>
           <input type="file" id="nf_docAnexo" accept=".pdf,.jpg,.jpeg,.png">
         </div>
+        <div class="efield" style="grid-column:1/-1;">
+          <label>Observação</label>
+          <textarea id="nf_obs" placeholder="Opcional"></textarea>
+        </div>
       </div>
     </form>
   </div>
@@ -361,10 +367,6 @@
       </table>
     </div>
   </div>
-
-  <p class="foot-note">
-    <b>Fonte:</b> planilha "Conciliação de Cheques.xlsx" no SharePoint (sincronização em tempo real). Cheques lançados aqui são gravados direto na planilha.
-  </p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -477,7 +479,8 @@ function graphRowToRow(v, rowIndex){
     numero: String(v[2]||''),
     favorecido: String(v[3]||''),
     valor: typeof v[4] === 'number' ? v[4] : parseBRL(v[4]),
-    anexo: v[5] || ''
+    anexo: v[5] || '',
+    obs: v[6] || ''
   };
 }
 
@@ -781,6 +784,7 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_favorecido').value = entry.favorecido || '';
   document.getElementById('nf_valor').value = String(entry.valor).replace('.', ',');
   document.getElementById('nf_docAnexo').value = '';
+  document.getElementById('nf_obs').value = entry.obs || '';
   setFormMode(true);
   togglePanel(true);
 }
@@ -850,11 +854,12 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var numero = document.getElementById('nf_numero').value.trim();
         var favorecido = document.getElementById('nf_favorecido').value.trim();
         var valor = parseBRL(document.getElementById('nf_valor').value);
+        var obs = document.getElementById('nf_obs').value.trim();
 
         var anexoUrl = isEditing ? (existing.anexo || '') : '';
         if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
 
-        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl ];
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs ];
 
         if (isEditing) {
           var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
@@ -901,13 +906,14 @@ function anexoCellHtml(r){
 }
 
 var COLUMNS = {
-  dataEnvio:  { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
-  numero:     { label:'Número do Cheque',   width:150, render: function(r){ return r.numero; } },
-  favorecido: { label:'Nome do Favorecido', width:240, render: function(r){ return r.favorecido; } },
-  valor:      { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
-  anexo:      { label:'Doc Cheque', width:100, render: anexoCellHtml }
+  dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
+  numero:      { label:'Número do Cheque',   width:150, render: function(r){ return r.numero; } },
+  favorecido:  { label:'Nome do Favorecido', width:240, render: function(r){ return r.favorecido; } },
+  valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
+  anexo:       { label:'Doc Cheque', width:100, render: anexoCellHtml },
+  obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs'];
 
 function loadColumnOrder(){
   try {
@@ -1031,7 +1037,8 @@ function render(){
         : '';
       var cells = columnOrder.map(function(key){
         var col = COLUMNS[key];
-        return '<td class="'+(col.cellCls||'')+'">'+col.render(r)+'</td>';
+        var titleAttr = col.titleAttr ? ' title="'+col.titleAttr(r)+'"' : '';
+        return '<td class="'+(col.cellCls||'')+'"'+titleAttr+'>'+col.render(r)+'</td>';
       }).join('');
       return '<tr>' + cells + '<td style="white-space:nowrap;">'+acoes+'</td></tr>';
     }).join('');
