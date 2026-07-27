@@ -585,7 +585,8 @@ function graphRowToRow(v, rowIndex){
     anexo: v[5] || '',
     obs: v[6] || '',
     chequeDe: v[7] || '',
-    status: v[8] || 'Aguardando'
+    status: v[8] || 'Aguardando',
+    dadosCheque: v[9] || ''
   };
 }
 
@@ -1026,9 +1027,10 @@ var COLUMNS = {
   anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml },
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
-  status:      { label:'Status', width:120, render: statusCellHtml }
+  status:      { label:'Status', width:120, render: statusCellHtml },
+  dadosCheque: { label:'Dados do Cheque', width:220, titleAttr: function(r){ return (r.dadosCheque||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.dadosCheque || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','dadosCheque'];
 
 function loadColumnOrder(){
   try {
