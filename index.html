@@ -205,11 +205,17 @@
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
   .entry-panel form{padding:16px;}
-  .entry-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
-  @media (max-width:900px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
-  .efield{display:flex;flex-direction:column;gap:5px;cursor:grab;}
+  .entry-grid{display:flex;flex-wrap:wrap;gap:12px;}
+  .efield{display:flex;flex-direction:column;gap:5px;cursor:grab;position:relative;flex:0 0 auto;width:170px;box-sizing:border-box;}
+  .efield.efield-wide{width:340px;}
+  .efield.efield-full{width:100%;}
   .efield.dragging-field{opacity:.35;}
   .efield.drop-target-field{outline:2px dashed var(--chart);outline-offset:2px;border-radius:8px;}
+  .efield-resizer{
+    position:absolute;top:0;right:-8px;width:12px;height:100%;
+    cursor:col-resize;user-select:none;z-index:5;
+  }
+  .efield-resizer:hover, .efield-resizer.resizing{background:rgba(57,135,229,.35);border-radius:4px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
   .efield label .req{color:var(--critical);}
   .efield input, .efield textarea, .efield select{
@@ -278,7 +284,8 @@
     .report{padding:14px 12px 18px;border-radius:12px;}
     .header-actions{width:100%;}
     .header-actions .user-chip{order:-1;width:100%;justify-content:space-between;}
-    .entry-grid{grid-template-columns:1fr !important;}
+    .efield{width:calc(50% - 6px) !important;}
+    .efield.efield-full{width:100% !important;}
   }
 </style>
 
@@ -395,7 +402,7 @@
           <label>Cheque <span class="req">*</span></label>
           <input type="text" inputmode="numeric" id="nf_numero" placeholder="Ex.: 000123" required>
         </div>
-        <div class="efield" data-field-key="favorecido" style="grid-column:span 2;">
+        <div class="efield efield-wide" data-field-key="favorecido">
           <label>Favorecido <span class="req">*</span></label>
           <input type="text" id="nf_favorecido" placeholder="Ex.: João da Silva" required>
         </div>
@@ -410,6 +417,7 @@
         <div class="efield" data-field-key="chequeDe">
           <label>Cheque De: <span class="req">*</span></label>
           <select id="nf_chequeDe" required>
+            <option value="" selected disabled>Selecione</option>
             <option value="Urbano">Urbano</option>
             <option value="Genivaldo">Genivaldo</option>
           </select>
@@ -417,12 +425,13 @@
         <div class="efield" data-field-key="status">
           <label>Status <span class="req">*</span></label>
           <select id="nf_status" required>
+            <option value="" selected disabled>Selecione</option>
             <option value="Aguardando">Aguardando</option>
             <option value="Pago">Pago</option>
             <option value="Cancelado">Cancelado</option>
           </select>
         </div>
-        <div class="efield" data-field-key="obs" style="grid-column:1/-1;">
+        <div class="efield efield-full" data-field-key="obs">
           <label>Observação</label>
           <textarea id="nf_obs" placeholder="Opcional"></textarea>
         </div>
@@ -1592,6 +1601,55 @@ function setupEntryFieldDragReorder(){
   });
 }
 
+function loadEntryFieldWidths(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_entryfield_widths_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveEntryFieldWidths(w){ try{ localStorage.setItem('qc_entryfield_widths_v1', JSON.stringify(w)); }catch(e){} }
+var entryFieldWidths = loadEntryFieldWidths();
+
+function applyEntryFieldWidths(){
+  document.querySelectorAll('.efield[data-field-key]').forEach(function(field){
+    var key = field.getAttribute('data-field-key');
+    if (entryFieldWidths[key]) field.style.width = entryFieldWidths[key] + 'px';
+  });
+}
+
+function setupEntryFieldResize(){
+  document.querySelectorAll('.efield[data-field-key]').forEach(function(field){
+    var key = field.getAttribute('data-field-key');
+    if (key === 'obs') return;
+    var resizer = document.createElement('div');
+    resizer.className = 'efield-resizer';
+    resizer.draggable = false;
+    resizer.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    resizer.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+    resizer.addEventListener('mousedown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      resizer.classList.add('resizing');
+      var startX = ev.clientX;
+      var startWidth = field.getBoundingClientRect().width;
+      function onMove(e2){
+        var newWidth = Math.max(100, Math.round(startWidth + (e2.clientX - startX)));
+        field.style.width = newWidth + 'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('resizing');
+        entryFieldWidths[key] = parseInt(field.style.width, 10);
+        saveEntryFieldWidths(entryFieldWidths);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    field.appendChild(resizer);
+  });
+}
+
 document.getElementById('columnsManageBtn').addEventListener('click', function(ev){
   ev.stopPropagation();
   var wrap = document.getElementById('columnsManageWrap');
@@ -1611,6 +1669,8 @@ applyFilterOrder();
 setupFilterDragReorder();
 applyEntryFieldOrder();
 setupEntryFieldDragReorder();
+applyEntryFieldWidths();
+setupEntryFieldResize();
 renderTableHead();
 initAuth();
 </script>
