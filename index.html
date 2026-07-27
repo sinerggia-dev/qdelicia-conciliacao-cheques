@@ -597,7 +597,8 @@ function graphRowToRow(v, rowIndex){
     telefone: v[17] || '',
     ouvidoria: v[18] || '',
     serie: v[19] || '',
-    numeroImpresso: v[20] || ''
+    numeroImpresso: v[20] || '',
+    talao: v[21] || ''
   };
 }
 
@@ -1032,7 +1033,7 @@ function statusCellHtml(r){
 
 var COLUMNS = {
   dataEnvio:   { label:'Data de Envio',      width:130, render: function(r){ return fmtDateBR(r.dataEnvio); } },
-  numero:      { label:'Cheque',      width:150, render: function(r){ return r.numero; } },
+  numero:      { label:'Cheque (Digitado)', width:150, render: function(r){ return r.numero; } },
   favorecido:  { label:'Favorecido', width:240, render: function(r){ return r.favorecido; } },
   valor:       { label:'Valor', width:120, cls:'num', cellCls:'num', render: function(r){ return brl(r.valor); } },
   anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml },
@@ -1050,9 +1051,10 @@ var COLUMNS = {
   telefone:     { label:'Telefone', width:120, render: function(r){ return r.telefone || ''; } },
   ouvidoria:    { label:'Ouvidoria', width:130, render: function(r){ return r.ouvidoria || ''; } },
   serie:        { label:'Série', width:90, render: function(r){ return r.serie || ''; } },
-  numeroImpresso: { label:'Cheque N° (impresso)', width:130, render: function(r){ return r.numeroImpresso || ''; } }
+  numeroImpresso: { label:'Cheque N° (Impresso)', width:150, render: function(r){ return r.numeroImpresso || ''; } },
+  talao:        { label:'Talão', width:220, titleAttr: function(r){ return (r.talao||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.talao || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
+var DEFAULT_COLUMN_ORDER = ['dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
 
 function loadColumnOrder(){
   try {
