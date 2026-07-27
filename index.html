@@ -81,14 +81,12 @@
 
   .filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;flex:none;}
   .filter-field{flex:0 0 auto;width:150px;position:relative;}
-  .filter-move{
-    position:absolute;bottom:-9px;right:8px;display:flex;gap:2px;
-    opacity:0;transition:opacity .12s ease;z-index:6;
-  }
-  .filter-field:hover .filter-move{opacity:1;}
+  .filter-label-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
+  .filter-label-row label{margin-bottom:0 !important;}
+  .filter-move{display:flex;gap:2px;flex:none;}
   .filter-move-btn{
-    width:17px;height:17px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-strong);
-    color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8px;padding:0;line-height:1;
+    width:15px;height:15px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-strong);
+    color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:7px;padding:0;line-height:1;
   }
   .filter-move-btn:hover{background:var(--surface);color:var(--ink);border-color:var(--chart);}
   .filter-field label{
@@ -1520,6 +1518,14 @@ function moverFiltro(key, delta){
 function addFilterMoveButtons(){
   document.querySelectorAll('.filter-field[data-filter-key]').forEach(function(wrap){
     var key = wrap.getAttribute('data-filter-key');
+    var label = wrap.querySelector('label');
+    if (!label || label.closest('.filter-label-row')) return;
+
+    var row = document.createElement('div');
+    row.className = 'filter-label-row';
+    wrap.insertBefore(row, label);
+    row.appendChild(label);
+
     var moveWrap = document.createElement('div');
     moveWrap.className = 'filter-move';
     var leftBtn = document.createElement('button');
@@ -1536,7 +1542,7 @@ function addFilterMoveButtons(){
     rightBtn.addEventListener('click', function(ev){ ev.stopPropagation(); moverFiltro(key, 1); });
     moveWrap.appendChild(leftBtn);
     moveWrap.appendChild(rightBtn);
-    wrap.appendChild(moveWrap);
+    row.appendChild(moveWrap);
   });
 }
 
