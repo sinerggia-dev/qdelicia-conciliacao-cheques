@@ -207,12 +207,14 @@
   .entry-panel form{padding:16px;}
   .entry-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
   @media (max-width:900px){ .entry-grid{grid-template-columns:repeat(2,1fr);} }
-  .efield{display:flex;flex-direction:column;gap:5px;}
+  .efield{display:flex;flex-direction:column;gap:5px;cursor:grab;}
+  .efield.dragging-field{opacity:.35;}
+  .efield.drop-target-field{outline:2px dashed var(--chart);outline-offset:2px;border-radius:8px;}
   .efield label{font-size:10.5px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;}
   .efield label .req{color:var(--critical);}
   .efield input, .efield textarea, .efield select{
     background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
-    font:13px var(--sans);padding:8px 10px;border-radius:7px;width:100%;
+    font:13px var(--sans);padding:8px 10px;border-radius:7px;width:100%;cursor:auto;
   }
   .efield textarea{resize:vertical;min-height:48px;font-family:var(--sans);}
   .efield input:focus, .efield textarea:focus, .efield select:focus{outline:2px solid var(--chart);outline-offset:1px;border-color:transparent;}
@@ -385,34 +387,34 @@
     </div>
     <form id="entryForm">
       <div class="entry-grid">
-        <div class="efield">
+        <div class="efield" data-field-key="dataEnvio">
           <label>Data de Envio <span class="req">*</span></label>
           <input type="date" id="nf_dataEnvio" required>
         </div>
-        <div class="efield">
+        <div class="efield" data-field-key="numero">
           <label>Cheque <span class="req">*</span></label>
           <input type="text" inputmode="numeric" id="nf_numero" placeholder="Ex.: 000123" required>
         </div>
-        <div class="efield" style="grid-column:span 2;">
+        <div class="efield" data-field-key="favorecido" style="grid-column:span 2;">
           <label>Favorecido <span class="req">*</span></label>
           <input type="text" id="nf_favorecido" placeholder="Ex.: João da Silva" required>
         </div>
-        <div class="efield">
+        <div class="efield" data-field-key="valor">
           <label>Valor (R$) <span class="req">*</span></label>
           <input type="text" inputmode="decimal" id="nf_valor" placeholder="Ex.: 1.250,00" required>
         </div>
-        <div class="efield">
+        <div class="efield" data-field-key="docAnexo">
           <label>Cheque Anexo</label>
           <input type="file" id="nf_docAnexo" accept=".pdf,.jpg,.jpeg,.png">
         </div>
-        <div class="efield">
+        <div class="efield" data-field-key="chequeDe">
           <label>Cheque De: <span class="req">*</span></label>
           <select id="nf_chequeDe" required>
             <option value="Urbano">Urbano</option>
             <option value="Genivaldo">Genivaldo</option>
           </select>
         </div>
-        <div class="efield">
+        <div class="efield" data-field-key="status">
           <label>Status <span class="req">*</span></label>
           <select id="nf_status" required>
             <option value="Aguardando">Aguardando</option>
@@ -420,7 +422,7 @@
             <option value="Cancelado">Cancelado</option>
           </select>
         </div>
-        <div class="efield" style="grid-column:1/-1;">
+        <div class="efield" data-field-key="obs" style="grid-column:1/-1;">
           <label>Observação</label>
           <textarea id="nf_obs" placeholder="Opcional"></textarea>
         </div>
@@ -845,13 +847,8 @@ function showToast(msg){
 
 var senhaCallback = null;
 function pedirSenha(mensagem, callback){
-  senhaCallback = callback;
-  document.getElementById('senhaMsg').textContent = mensagem || 'Digite a senha para autorizar esta ação:';
-  document.getElementById('senhaErro').classList.remove('show');
-  var input = document.getElementById('senhaInput');
-  input.value = '';
-  document.getElementById('senhaOverlay').classList.add('open');
-  input.focus();
+  // Senha de autorização desativada por enquanto (a pedido do usuário) — executa direto.
+  if (callback) callback(true);
 }
 function fecharSenha(){
   document.getElementById('senhaOverlay').classList.remove('open');
@@ -919,7 +916,7 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_dataEnvio').value = entry.dataEnvio || '';
   document.getElementById('nf_numero').value = entry.numero || '';
   document.getElementById('nf_favorecido').value = entry.favorecido || '';
-  document.getElementById('nf_valor').value = String(entry.valor).replace('.', ',');
+  document.getElementById('nf_valor').value = Number(entry.valor||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   document.getElementById('nf_docAnexo').value = '';
   document.getElementById('nf_obs').value = entry.obs || '';
   document.getElementById('nf_chequeDe').value = entry.chequeDe || 'Urbano';
@@ -935,6 +932,16 @@ function apenasNumeros(el){
   });
 }
 apenasNumeros(document.getElementById('nf_numero'));
+
+function aplicarMascaraValor(el){
+  el.addEventListener('input', function(){
+    var digitos = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    if (!digitos){ el.value = ''; return; }
+    var numero = parseInt(digitos, 10) / 100;
+    el.value = numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  });
+}
+aplicarMascaraValor(document.getElementById('nf_valor'));
 function setFieldValid(el, valid){
   if (!el) return;
   var wrap = el.closest ? el.closest('.efield') : null;
@@ -1525,6 +1532,58 @@ function setupFilterDragReorder(){
   });
 }
 
+var ENTRY_FIELD_KEYS = ['dataEnvio','numero','favorecido','valor','docAnexo','chequeDe','status','obs'];
+function loadEntryFieldOrder(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_entryfield_order_v1'));
+    if (Array.isArray(saved) && saved.every(function(k){ return ENTRY_FIELD_KEYS.indexOf(k) !== -1; })){
+      ENTRY_FIELD_KEYS.forEach(function(k){ if (saved.indexOf(k) === -1) saved.push(k); });
+      return saved;
+    }
+  } catch(e){}
+  return ENTRY_FIELD_KEYS.slice();
+}
+function saveEntryFieldOrder(order){ try{ localStorage.setItem('qc_entryfield_order_v1', JSON.stringify(order)); }catch(e){} }
+var entryFieldOrder = loadEntryFieldOrder();
+
+function applyEntryFieldOrder(){
+  var container = document.querySelector('.entry-grid');
+  entryFieldOrder.forEach(function(key){
+    var el = container.querySelector('[data-field-key="'+key+'"]');
+    if (el) container.appendChild(el);
+  });
+}
+
+function setupEntryFieldDragReorder(){
+  document.querySelectorAll('.efield[data-field-key]').forEach(function(field){
+    field.draggable = true;
+    var control = field.querySelector('input, select, textarea');
+    if (control) control.draggable = false;
+
+    field.addEventListener('dragstart', function(ev){
+      ev.dataTransfer.setData('text/plain', field.getAttribute('data-field-key'));
+      field.classList.add('dragging-field');
+    });
+    field.addEventListener('dragend', function(){ field.classList.remove('dragging-field'); });
+    field.addEventListener('dragover', function(ev){ ev.preventDefault(); field.classList.add('drop-target-field'); });
+    field.addEventListener('dragleave', function(){ field.classList.remove('drop-target-field'); });
+    field.addEventListener('drop', function(ev){
+      ev.preventDefault();
+      field.classList.remove('drop-target-field');
+      var draggedKey = ev.dataTransfer.getData('text/plain');
+      var key = field.getAttribute('data-field-key');
+      if (!draggedKey || draggedKey === key) return;
+      var from = entryFieldOrder.indexOf(draggedKey);
+      var to = entryFieldOrder.indexOf(key);
+      if (from === -1 || to === -1) return;
+      entryFieldOrder.splice(from, 1);
+      entryFieldOrder.splice(to, 0, draggedKey);
+      saveEntryFieldOrder(entryFieldOrder);
+      applyEntryFieldOrder();
+    });
+  });
+}
+
 document.getElementById('columnsManageBtn').addEventListener('click', function(ev){
   ev.stopPropagation();
   var wrap = document.getElementById('columnsManageWrap');
@@ -1542,6 +1601,8 @@ document.addEventListener('keydown', function(ev){
 
 applyFilterOrder();
 setupFilterDragReorder();
+applyEntryFieldOrder();
+setupEntryFieldDragReorder();
 renderTableHead();
 initAuth();
 </script>
