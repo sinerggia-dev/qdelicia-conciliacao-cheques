@@ -1006,7 +1006,15 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var anexoUrl = isEditing ? (existing.anexo || '') : '';
         if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
 
-        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe, status ];
+        var camposExtraidos = isEditing ? [
+          existing.banco || '', existing.cooperativa || '', existing.conta || '',
+          existing.titular || '', existing.cpf || '', existing.vinculo || '',
+          existing.clienteDesde || '', existing.endereco || '', existing.telefone || '',
+          existing.ouvidoria || '', existing.serie || '', existing.numeroImpresso || '',
+          existing.talao || ''
+        ] : ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+        var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe, status ].concat(camposExtraidos);
 
         if (isEditing) {
           var rowIndexAtual = await resolverRowIndexAtual(token, existing.id);
