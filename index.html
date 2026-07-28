@@ -240,6 +240,12 @@
   .pill.aguardando{background:var(--warning-dim);color:var(--warning);}
   .pill.aguardando::before{background:var(--warning);}
 
+  .approve-btn{
+    background:var(--chart);color:#fff;border:none;font:700 10.5px var(--sans);
+    padding:4px 10px;border-radius:20px;cursor:pointer;white-space:nowrap;
+  }
+  .approve-btn:hover{background:var(--chart-soft);}
+
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
   .entry-panel form{padding:16px;}
@@ -684,7 +690,8 @@ function graphRowToRow(v, rowIndex){
     ouvidoria: v[18] || '',
     serie: v[19] || '',
     numeroImpresso: v[20] || '',
-    talao: v[21] || ''
+    talao: v[21] || '',
+    aprovacao: v[22] || 'Pendente'
   };
 }
 
@@ -1076,8 +1083,8 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
           existing.titular || '', existing.cpf || '', existing.vinculo || '',
           existing.clienteDesde || '', existing.endereco || '', existing.telefone || '',
           existing.ouvidoria || '', existing.serie || '', existing.numeroImpresso || '',
-          existing.talao || ''
-        ] : ['', '', '', '', '', '', '', '', '', '', '', '', ''];
+          existing.talao || '', existing.aprovacao || 'Pendente'
+        ] : ['', '', '', '', '', '', '', '', '', '', '', '', '', 'Pendente'];
 
         var linha = [ novoId, isoToSerial(dataEnvio), numero, favorecido, valor, anexoUrl, obs, chequeDe, status ].concat(camposExtraidos);
 
@@ -1130,6 +1137,13 @@ function statusCellHtml(r){
   return '<span class="pill '+cls+'">'+st+'</span>';
 }
 
+function aprovacaoCellHtml(r){
+  var aprovado = r.aprovacao === 'Aprovado';
+  if (aprovado) return '<span class="pill pago">Aprovado</span>';
+  if (ehDono()) return '<button type="button" class="approve-btn" data-rawid="'+r.id+'" title="Aprovar este lançamento">Aprovar</button>';
+  return '<span class="pill aguardando">Pendente</span>';
+}
+
 function confrontoCheque(r){
   var digitado = String(r.numero||'').replace(/\D/g, '');
   var impresso = String(r.numeroImpresso||'').replace(/\D/g, '');
@@ -1153,6 +1167,7 @@ var COLUMNS = {
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
   status:      { label:'Status', width:120, render: statusCellHtml, exportValue: function(r){ return r.status || 'Aguardando'; } },
+  aprovacao:   { label:'Aprovação', width:130, render: aprovacaoCellHtml, exportValue: function(r){ return r.aprovacao || 'Pendente'; } },
   confronto:   { label:'Confronto Cheque', width:150, render: confrontoChequeCellHtml, exportValue: function(r){ return confrontoCheque(r).texto; } },
   banco:        { label:'Banco', width:160, render: function(r){ return r.banco || ''; } },
   cooperativa:  { label:'Cooperativa', width:110, render: function(r){ return r.cooperativa || ''; } },
@@ -1168,7 +1183,7 @@ var COLUMNS = {
   numeroImpresso: { label:'Cheque N° (Impresso)', width:150, render: function(r){ return r.numeroImpresso || ''; } },
   talao:        { label:'Talão', width:220, titleAttr: function(r){ return (r.talao||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.talao || ''; } }
 };
-var DEFAULT_COLUMN_ORDER = ['id','dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','serie','numeroImpresso','confronto','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
+var DEFAULT_COLUMN_ORDER = ['id','dataEnvio','numero','favorecido','valor','anexo','obs','chequeDe','status','aprovacao','serie','numeroImpresso','confronto','talao','banco','cooperativa','conta','titular','cpf','vinculo','clienteDesde','endereco','telefone','ouvidoria'];
 
 function loadColumnOrder(){
   try {
@@ -1476,6 +1491,28 @@ function render(){
             }
           })();
         });
+      });
+    });
+    body.querySelectorAll('.approve-btn').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var rawId = Number(btn.getAttribute('data-rawid'));
+        var row = DATA.find(function(r){ return r.id === rawId; });
+        if (!row) { showToast('Cheque não encontrado.'); return; }
+        btn.disabled = true;
+        try {
+          var token = await getToken();
+          var linhas = await buscarLinhasAtuaisGraph(token);
+          var match = linhas.find(function(l){ return l.values[0][0] === rawId; });
+          if (!match) throw new Error('Cheque não encontrado na planilha.');
+          var v = match.values[0].slice();
+          v[22] = 'Aprovado';
+          await atualizarLinhaGraph(token, match.index, v);
+          showToast('Cheque #' + rawId + ' aprovado.');
+          await carregarDados();
+        } catch (err) {
+          showToast('Erro ao aprovar: ' + (err && err.message ? err.message : err));
+          btn.disabled = false;
+        }
       });
     });
   }
