@@ -112,22 +112,39 @@
   }
   #filtersToggleBtn.active{border-color:var(--chart);color:var(--ink);}
 
-  .content-drawer-wrap{display:flex;flex-direction:row;gap:14px;align-items:stretch;flex:1;min-height:0;}
-  .content-drawer-wrap .panel{flex:1;min-width:0;}
-  .filters-drawer{
-    flex:none;width:0;overflow:hidden;background:var(--surface);border:1px solid var(--border);
-    border-radius:12px;transition:width .22s ease;display:flex;flex-direction:column;gap:14px;
+  .content-drawer-wrap{position:relative;flex:1;min-height:480px;}
+  .content-drawer-wrap .panel{
+    position:absolute;top:0;left:0;width:calc(100% - 250px);height:100%;
+    min-width:320px;min-height:200px;
   }
-  .filters-drawer.open{width:220px;padding:16px;}
-  .filters-drawer-head{display:flex;justify-content:space-between;align-items:center;flex:none;}
+  .panel-head{cursor:move;}
+  .panel-head button, .panel-head .columns-manage-wrap, .panel-head .count{cursor:auto;}
+  .resize-handle-corner{
+    position:absolute;right:3px;bottom:3px;width:16px;height:16px;cursor:nwse-resize;
+    color:var(--ink-muted);z-index:6;
+  }
+  .resize-handle-corner:hover{color:var(--chart-soft);}
+  .resize-handle-corner svg{width:100%;height:100%;display:block;}
+
+  .filters-drawer{
+    position:absolute;top:0;right:0;width:220px;height:480px;min-width:180px;min-height:200px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;display:none;flex-direction:column;gap:14px;padding:16px;z-index:4;
+  }
+  .filters-drawer.open{display:flex;}
+  .filters-drawer-head{display:flex;justify-content:space-between;align-items:center;flex:none;cursor:move;}
   .filters-drawer-head b{font-size:13px;}
   .filters-drawer-close{
     background:transparent;border:none;color:var(--ink-muted);font-size:20px;line-height:1;
     cursor:pointer;padding:0;
   }
   .filters-drawer-close:hover{color:var(--ink);}
-  .filters-drawer .filters{flex-direction:column;flex-wrap:nowrap;gap:14px;}
+  .filters-drawer .filters{flex-direction:column;flex-wrap:nowrap;gap:14px;overflow-y:auto;}
   .filters-drawer .filter-field{width:100% !important;}
+
+  .kpi{cursor:grab;}
+  .kpi.dragging-kpi{opacity:.35;}
+  .kpi.drop-target-kpi{outline:2px dashed var(--chart);outline-offset:2px;}
 
   .kpis{display:flex;gap:10px;flex:none;flex-wrap:wrap;}
   .kpi{
@@ -361,9 +378,9 @@
 
   <div class="filters-row">
     <div class="kpis" id="kpis">
-      <div class="kpi"><div class="v" id="kpiQtd">0</div><div class="l">Cheques lançados</div></div>
-      <div class="kpi"><div class="v" id="kpiTotal">R$ 0,00</div><div class="l">Valor total</div></div>
-      <div class="kpi"><div class="v" id="kpiHoje">0</div><div class="l">Enviados hoje</div></div>
+      <div class="kpi" data-kpi-key="qtd"><div class="v" id="kpiQtd">0</div><div class="l">Cheques lançados</div></div>
+      <div class="kpi" data-kpi-key="total"><div class="v" id="kpiTotal">R$ 0,00</div><div class="l">Valor total</div></div>
+      <div class="kpi" data-kpi-key="hoje"><div class="v" id="kpiHoje">0</div><div class="l">Enviados hoje</div></div>
     </div>
   </div>
 
@@ -441,11 +458,14 @@
     </form>
   </div>
 
-  <div class="content-drawer-wrap">
-    <div class="panel">
-      <div class="panel-head">
+  <div class="content-drawer-wrap" id="contentDrawerWrap">
+    <div class="panel" id="chequesPanel">
+      <div class="panel-head" id="chequesPanelHead">
         <h2>Cheques</h2>
         <div style="display:flex;align-items:center;gap:10px;">
+          <button class="clear-btn" id="resetLayoutBtn" type="button" title="Redefinir posição/tamanho dos painéis e cartões">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 1 2.64 6.36" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M3 21v-6h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <button class="clear-btn" id="exportExcelBtn" type="button" title="Exportar tabela para Excel">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
             Exportar Excel
@@ -1540,6 +1560,208 @@ function alternarGavetaFiltros(){
 }
 document.getElementById('filtersToggleBtn').addEventListener('click', alternarGavetaFiltros);
 document.getElementById('filtersDrawerClose').addEventListener('click', alternarGavetaFiltros);
+
+/* ---- Mover e redimensionar painéis livremente ---- */
+function criarAlcaRedimensionar(){
+  var el = document.createElement('div');
+  el.className = 'resize-handle-corner';
+  el.draggable = false;
+  el.title = 'Arraste para redimensionar';
+  el.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M21 15v6h-6M21 21 13 13M9 3H3v6M3 3l8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  el.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  el.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+  return el;
+}
+
+function salvarLayoutPainel(key, el){
+  try {
+    localStorage.setItem('qc_panel_layout_' + key, JSON.stringify({
+      left: el.style.left, top: el.style.top, width: el.style.width, height: el.style.height
+    }));
+  } catch(e){}
+}
+function carregarLayoutPainel(key){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_panel_layout_' + key));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return null;
+}
+function aplicarLayoutPainel(key, el){
+  var saved = carregarLayoutPainel(key);
+  if (!saved) return;
+  if (saved.left) el.style.left = saved.left;
+  if (saved.top) el.style.top = saved.top;
+  if (saved.width) el.style.width = saved.width;
+  if (saved.height) el.style.height = saved.height;
+}
+
+function tornarMovel(handleEl, targetEl, key){
+  handleEl.addEventListener('mousedown', function(ev){
+    if (ev.target.closest('button, select, input, a, .resize-handle-corner, .columns-manage-wrap')) return;
+    ev.preventDefault();
+    var startX = ev.clientX, startY = ev.clientY;
+    var parentRect = targetEl.offsetParent.getBoundingClientRect();
+    var rect = targetEl.getBoundingClientRect();
+    var startLeft = rect.left - parentRect.left;
+    var startTop = rect.top - parentRect.top;
+    targetEl.style.right = 'auto';
+    function onMove(e2){
+      var newLeft = Math.max(0, startLeft + (e2.clientX - startX));
+      var newTop = Math.max(0, startTop + (e2.clientY - startY));
+      targetEl.style.left = newLeft + 'px';
+      targetEl.style.top = newTop + 'px';
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      salvarLayoutPainel(key, targetEl);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function tornarRedimensionavel(targetEl, key, minW, minH){
+  var handle = criarAlcaRedimensionar();
+  targetEl.appendChild(handle);
+  handle.addEventListener('mousedown', function(ev){
+    ev.preventDefault(); ev.stopPropagation();
+    var startX = ev.clientX, startY = ev.clientY;
+    var startW = targetEl.getBoundingClientRect().width;
+    var startH = targetEl.getBoundingClientRect().height;
+    function onMove(e2){
+      var newW = Math.max(minW, Math.round(startW + (e2.clientX - startX)));
+      var newH = Math.max(minH, Math.round(startH + (e2.clientY - startY)));
+      targetEl.style.width = newW + 'px';
+      targetEl.style.height = newH + 'px';
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      salvarLayoutPainel(key, targetEl);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+var chequesPanelEl = document.getElementById('chequesPanel');
+var filtersDrawerEl = document.getElementById('filtersDrawer');
+aplicarLayoutPainel('chequesPanel', chequesPanelEl);
+aplicarLayoutPainel('filtersDrawer', filtersDrawerEl);
+tornarMovel(document.getElementById('chequesPanelHead'), chequesPanelEl, 'chequesPanel');
+tornarRedimensionavel(chequesPanelEl, 'chequesPanel', 320, 200);
+tornarMovel(filtersDrawerEl.querySelector('.filters-drawer-head'), filtersDrawerEl, 'filtersDrawer');
+tornarRedimensionavel(filtersDrawerEl, 'filtersDrawer', 180, 200);
+
+/* ---- Mover (reordenar) e redimensionar cartões de KPI ---- */
+var KPI_KEYS = ['qtd', 'total', 'hoje'];
+function loadKpiOrder(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_kpi_order_v1'));
+    if (Array.isArray(saved) && saved.every(function(k){ return KPI_KEYS.indexOf(k) !== -1; })){
+      KPI_KEYS.forEach(function(k){ if (saved.indexOf(k) === -1) saved.push(k); });
+      return saved;
+    }
+  } catch(e){}
+  return KPI_KEYS.slice();
+}
+function saveKpiOrder(order){ try{ localStorage.setItem('qc_kpi_order_v1', JSON.stringify(order)); }catch(e){} }
+var kpiOrder = loadKpiOrder();
+function applyKpiOrder(){
+  var container = document.getElementById('kpis');
+  kpiOrder.forEach(function(key){
+    var el = container.querySelector('[data-kpi-key="'+key+'"]');
+    if (el) container.appendChild(el);
+  });
+}
+function loadKpiSizes(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_kpi_sizes_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveKpiSizes(sizes){ try{ localStorage.setItem('qc_kpi_sizes_v1', JSON.stringify(sizes)); }catch(e){} }
+var kpiSizes = loadKpiSizes();
+function applyKpiSizes(){
+  document.querySelectorAll('.kpi[data-kpi-key]').forEach(function(kpi){
+    var key = kpi.getAttribute('data-kpi-key');
+    if (kpiSizes[key]) {
+      if (kpiSizes[key].width) kpi.style.width = kpiSizes[key].width + 'px';
+      if (kpiSizes[key].height) kpi.style.height = kpiSizes[key].height + 'px';
+    }
+  });
+}
+function setupKpiDragReorder(){
+  document.querySelectorAll('.kpi[data-kpi-key]').forEach(function(kpi){
+    kpi.draggable = true;
+    kpi.addEventListener('dragstart', function(ev){
+      ev.dataTransfer.setData('text/plain', kpi.getAttribute('data-kpi-key'));
+      kpi.classList.add('dragging-kpi');
+    });
+    kpi.addEventListener('dragend', function(){ kpi.classList.remove('dragging-kpi'); });
+    kpi.addEventListener('dragover', function(ev){ ev.preventDefault(); kpi.classList.add('drop-target-kpi'); });
+    kpi.addEventListener('dragleave', function(){ kpi.classList.remove('drop-target-kpi'); });
+    kpi.addEventListener('drop', function(ev){
+      ev.preventDefault();
+      kpi.classList.remove('drop-target-kpi');
+      var draggedKey = ev.dataTransfer.getData('text/plain');
+      var key = kpi.getAttribute('data-kpi-key');
+      if (!draggedKey || draggedKey === key) return;
+      var from = kpiOrder.indexOf(draggedKey);
+      var to = kpiOrder.indexOf(key);
+      if (from === -1 || to === -1) return;
+      kpiOrder.splice(from, 1);
+      kpiOrder.splice(to, 0, draggedKey);
+      saveKpiOrder(kpiOrder);
+      applyKpiOrder();
+    });
+    var handle = criarAlcaRedimensionar();
+    kpi.appendChild(handle);
+    handle.addEventListener('mousedown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      var key = kpi.getAttribute('data-kpi-key');
+      var startX = ev.clientX, startY = ev.clientY;
+      var startW = kpi.getBoundingClientRect().width;
+      var startH = kpi.getBoundingClientRect().height;
+      function onMove(e2){
+        var newW = Math.max(90, Math.round(startW + (e2.clientX - startX)));
+        var newH = Math.max(40, Math.round(startH + (e2.clientY - startY)));
+        kpi.style.width = newW + 'px';
+        kpi.style.height = newH + 'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        kpiSizes[key] = { width: parseInt(kpi.style.width, 10), height: parseInt(kpi.style.height, 10) };
+        saveKpiSizes(kpiSizes);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+applyKpiOrder();
+applyKpiSizes();
+setupKpiDragReorder();
+
+document.getElementById('resetLayoutBtn').addEventListener('click', function(){
+  try {
+    localStorage.removeItem('qc_panel_layout_chequesPanel');
+    localStorage.removeItem('qc_panel_layout_filtersDrawer');
+    localStorage.removeItem('qc_kpi_order_v1');
+    localStorage.removeItem('qc_kpi_sizes_v1');
+  } catch(e){}
+  chequesPanelEl.style.left = ''; chequesPanelEl.style.top = ''; chequesPanelEl.style.width = ''; chequesPanelEl.style.height = '';
+  filtersDrawerEl.style.left = ''; filtersDrawerEl.style.top = ''; filtersDrawerEl.style.width = ''; filtersDrawerEl.style.height = '';
+  document.querySelectorAll('.kpi[data-kpi-key]').forEach(function(kpi){ kpi.style.width = ''; kpi.style.height = ''; });
+  kpiOrder = KPI_KEYS.slice();
+  kpiSizes = {};
+  applyKpiOrder();
+  showToast('Layout redefinido para o padrão.');
+});
 
 function renderAdminLista(usuarios){
   var el = document.getElementById('adm_lista');
