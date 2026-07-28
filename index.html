@@ -148,6 +148,11 @@
   }
   table.chq thead th:hover .col-remove{opacity:1;}
   .col-remove:hover{background:var(--critical-dim);color:var(--critical);border-color:var(--critical);}
+  .col-rename-input{
+    font:inherit;color:var(--ink);background:var(--surface-3);
+    border:1px solid var(--chart);border-radius:4px;padding:1px 4px;
+    width:calc(100% - 18px);box-sizing:border-box;
+  }
 
   .columns-manage-wrap{position:relative;}
   .columns-manage-menu{
@@ -1156,9 +1161,23 @@ function loadColumnVisibility(){
 }
 function saveColumnVisibility(v){ try{ localStorage.setItem('qc_column_visibility_v1', JSON.stringify(v)); }catch(e){} }
 
+function loadColumnLabels(){
+  try {
+    var saved = JSON.parse(localStorage.getItem('qc_column_labels_v1'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch(e){}
+  return {};
+}
+function saveColumnLabels(v){ try{ localStorage.setItem('qc_column_labels_v1', JSON.stringify(v)); }catch(e){} }
+function getColumnLabel(key){
+  var col = COLUMNS[key];
+  return (columnLabels[key] || (col && col.label) || key);
+}
+
 var columnOrder = loadColumnOrder();
 var columnWidths = loadColumnWidths();
 var columnVisibility = loadColumnVisibility();
+var columnLabels = loadColumnLabels();
 
 function visibleColumnOrder(){
   return columnOrder.filter(function(key){ return columnVisibility[key] !== false; });
@@ -1177,7 +1196,7 @@ function updateColumnsManageMenu(){
     if (!col) return;
     var item = document.createElement('div');
     item.className = 'columns-manage-item';
-    item.textContent = '+ ' + col.label;
+    item.textContent = '+ ' + getColumnLabel(key);
     item.addEventListener('click', function(ev){
       ev.stopPropagation();
       pedirSenha('Digite a senha para incluir esta coluna de volta na tabela:', function(ok){
@@ -1209,7 +1228,43 @@ function renderTableHead(){
     th.draggable = true;
     th.setAttribute('data-key', key);
     var labelSpan = document.createElement('span');
-    labelSpan.textContent = col.label;
+    labelSpan.textContent = getColumnLabel(key);
+    labelSpan.title = 'Clique duas vezes para renomear esta coluna';
+    labelSpan.draggable = false;
+    labelSpan.addEventListener('dragstart', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+    labelSpan.addEventListener('dblclick', function(ev){
+      ev.stopPropagation();
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'col-rename-input';
+      input.value = getColumnLabel(key);
+      input.draggable = false;
+      input.addEventListener('click', function(e2){ e2.stopPropagation(); });
+      input.addEventListener('mousedown', function(e2){ e2.stopPropagation(); });
+      input.addEventListener('dragstart', function(e2){ e2.preventDefault(); e2.stopPropagation(); });
+      var salvo = false;
+      function salvar(){
+        if (salvo) return;
+        salvo = true;
+        var novo = input.value.trim();
+        if (novo && novo !== (COLUMNS[key] && COLUMNS[key].label)) {
+          columnLabels[key] = novo;
+        } else {
+          delete columnLabels[key];
+        }
+        saveColumnLabels(columnLabels);
+        renderTableHead();
+        render();
+      }
+      input.addEventListener('keydown', function(e2){
+        if (e2.key === 'Enter') { e2.preventDefault(); input.blur(); }
+        if (e2.key === 'Escape') { e2.preventDefault(); salvo = true; renderTableHead(); render(); }
+      });
+      input.addEventListener('blur', salvar);
+      th.replaceChild(input, labelSpan);
+      input.focus();
+      input.select();
+    });
     th.appendChild(labelSpan);
 
     var resizer = document.createElement('div');
@@ -1317,7 +1372,7 @@ function getExportValue(col, r){
 function exportarExcel(){
   var rows = filtrados().slice().sort(function(a,b){ return (b.dataEnvio||'').localeCompare(a.dataEnvio||''); });
   var cols = visibleColumnOrder();
-  var headers = cols.map(function(key){ return COLUMNS[key].label; });
+  var headers = cols.map(function(key){ return getColumnLabel(key); });
   var dados = rows.map(function(r){
     return cols.map(function(key){ return getExportValue(COLUMNS[key], r); });
   });
