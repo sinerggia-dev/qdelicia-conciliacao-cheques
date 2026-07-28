@@ -105,6 +105,30 @@
   }
   .filters{margin-bottom:0;justify-content:flex-end;}
 
+  .filters-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--chart);color:#fff;font:700 10px var(--mono);
+    min-width:16px;height:16px;border-radius:9px;padding:0 4px;margin-left:2px;
+  }
+  #filtersToggleBtn.active{border-color:var(--chart);color:var(--ink);}
+
+  .content-drawer-wrap{display:flex;flex-direction:row;gap:14px;align-items:stretch;flex:1;min-height:0;}
+  .content-drawer-wrap .panel{flex:1;min-width:0;}
+  .filters-drawer{
+    flex:none;width:0;overflow:hidden;background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;transition:width .22s ease;display:flex;flex-direction:column;gap:14px;
+  }
+  .filters-drawer.open{width:220px;padding:16px;}
+  .filters-drawer-head{display:flex;justify-content:space-between;align-items:center;flex:none;}
+  .filters-drawer-head b{font-size:13px;}
+  .filters-drawer-close{
+    background:transparent;border:none;color:var(--ink-muted);font-size:20px;line-height:1;
+    cursor:pointer;padding:0;
+  }
+  .filters-drawer-close:hover{color:var(--ink);}
+  .filters-drawer .filters{flex-direction:column;flex-wrap:nowrap;gap:14px;}
+  .filters-drawer .filter-field{width:100% !important;}
+
   .kpis{display:flex;gap:10px;flex:none;flex-wrap:wrap;}
   .kpi{
     position:relative;overflow:hidden;
@@ -319,6 +343,11 @@
         <svg viewBox="0 0 24 24" fill="none"><path d="M20 20H8l-6-6a2 2 0 0 1 0-2.83l8-8a2 2 0 0 1 2.83 0l7 7a2 2 0 0 1 0 2.83L13 20" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13.5 8.5 18 13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         Limpar
       </button>
+      <button class="clear-btn" id="filtersToggleBtn" type="button" title="Mostrar/ocultar filtros">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        Filtros
+        <span class="filters-badge" id="filtersBadge" style="display:none;">0</span>
+      </button>
       <button class="clear-btn" id="adminBtn" type="button" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.13.31.4.55.72.68.32.13.68.13 1 0H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.7"/></svg>
         Administração
@@ -335,47 +364,6 @@
       <div class="kpi"><div class="v" id="kpiQtd">0</div><div class="l">Cheques lançados</div></div>
       <div class="kpi"><div class="v" id="kpiTotal">R$ 0,00</div><div class="l">Valor total</div></div>
       <div class="kpi"><div class="v" id="kpiHoje">0</div><div class="l">Enviados hoje</div></div>
-    </div>
-    <div class="filters">
-      <div class="filter-field" data-filter-key="favorecido">
-        <label>Favorecido</label>
-        <select id="f_busca">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-field" data-filter-key="numero">
-        <label>Cheque</label>
-        <select id="f_numero">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-field" data-filter-key="pagamento">
-        <label>Pagamento</label>
-        <input type="date" id="f_de">
-      </div>
-      <div class="filter-field" data-filter-key="chequeDe">
-        <label>Cheque De:</label>
-        <select id="f_chequeDe">
-          <option value="">Todos</option>
-          <option value="Urbano">Urbano</option>
-          <option value="Genivaldo">Genivaldo</option>
-        </select>
-      </div>
-      <div class="filter-field" data-filter-key="status">
-        <label>Status</label>
-        <select id="f_status">
-          <option value="">Todos</option>
-          <option value="Aguardando">Aguardando</option>
-          <option value="Pago">Pago</option>
-          <option value="Cancelado">Cancelado</option>
-        </select>
-      </div>
-      <div class="filter-field" data-filter-key="mesAno">
-        <label>Mês/Ano</label>
-        <select id="f_mesAno">
-          <option value="">Todos</option>
-        </select>
-      </div>
     </div>
   </div>
 
@@ -453,33 +441,82 @@
     </form>
   </div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <h2>Cheques</h2>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button class="clear-btn" id="exportExcelBtn" type="button" title="Exportar tabela para Excel">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-          Exportar Excel
-        </button>
-        <div class="columns-manage-wrap" id="columnsManageWrap">
-          <button class="clear-btn" id="columnsManageBtn" type="button" title="Mostrar/ocultar colunas">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            Colunas
+  <div class="content-drawer-wrap">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Cheques</h2>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="clear-btn" id="exportExcelBtn" type="button" title="Exportar tabela para Excel">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            Exportar Excel
           </button>
-          <div class="columns-manage-menu" id="columnsManageMenu"></div>
+          <div class="columns-manage-wrap" id="columnsManageWrap">
+            <button class="clear-btn" id="columnsManageBtn" type="button" title="Mostrar/ocultar colunas">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              Colunas
+            </button>
+            <div class="columns-manage-menu" id="columnsManageMenu"></div>
+          </div>
+          <span class="count" id="tableCount">0 cheques</span>
         </div>
-        <span class="count" id="tableCount">0 cheques</span>
+      </div>
+      <div class="table-scroll">
+        <table class="chq" id="chqTable">
+          <colgroup id="tableColgroup"></colgroup>
+          <thead>
+            <tr id="tableHeadRow"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot><tr id="tableFootRow"></tr></tfoot>
+        </table>
       </div>
     </div>
-    <div class="table-scroll">
-      <table class="chq" id="chqTable">
-        <colgroup id="tableColgroup"></colgroup>
-        <thead>
-          <tr id="tableHeadRow"></tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-        <tfoot><tr id="tableFootRow"></tr></tfoot>
-      </table>
+    <div class="filters-drawer" id="filtersDrawer">
+      <div class="filters-drawer-head">
+        <b>Filtros</b>
+        <button type="button" class="filters-drawer-close" id="filtersDrawerClose" title="Fechar filtros">&times;</button>
+      </div>
+      <div class="filters">
+        <div class="filter-field" data-filter-key="favorecido">
+          <label>Favorecido</label>
+          <select id="f_busca">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="filter-field" data-filter-key="numero">
+          <label>Cheque</label>
+          <select id="f_numero">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="filter-field" data-filter-key="pagamento">
+          <label>Pagamento</label>
+          <input type="date" id="f_de">
+        </div>
+        <div class="filter-field" data-filter-key="chequeDe">
+          <label>Cheque De:</label>
+          <select id="f_chequeDe">
+            <option value="">Todos</option>
+            <option value="Urbano">Urbano</option>
+            <option value="Genivaldo">Genivaldo</option>
+          </select>
+        </div>
+        <div class="filter-field" data-filter-key="status">
+          <label>Status</label>
+          <select id="f_status">
+            <option value="">Todos</option>
+            <option value="Aguardando">Aguardando</option>
+            <option value="Pago">Pago</option>
+            <option value="Cancelado">Cancelado</option>
+          </select>
+        </div>
+        <div class="filter-field" data-filter-key="mesAno">
+          <label>Mês/Ano</label>
+          <select id="f_mesAno">
+            <option value="">Todos</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1388,6 +1425,7 @@ function render(){
   buildMesAnoOptions();
   buildSelectOptionsFromData('f_busca', 'favorecido');
   buildSelectOptionsFromData('f_numero', 'numero');
+  atualizarBadgeFiltros();
   var rows = filtrados();
   var body = document.getElementById('tableBody');
   document.getElementById('tableCount').textContent = rows.length + (rows.length === 1 ? ' cheque' : ' cheques');
@@ -1474,6 +1512,34 @@ document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_mesAno').value = '';
   render();
 });
+
+function atualizarBadgeFiltros(){
+  var valores = [
+    document.getElementById('f_busca').value,
+    document.getElementById('f_numero').value,
+    document.getElementById('f_de').value,
+    document.getElementById('f_chequeDe').value,
+    document.getElementById('f_status').value,
+    document.getElementById('f_mesAno').value
+  ];
+  var ativos = valores.filter(function(v){ return !!v; }).length;
+  var badge = document.getElementById('filtersBadge');
+  var toggleBtn = document.getElementById('filtersToggleBtn');
+  if (ativos > 0) {
+    badge.textContent = ativos;
+    badge.style.display = 'inline-flex';
+    toggleBtn.classList.add('active');
+  } else {
+    badge.style.display = 'none';
+    toggleBtn.classList.remove('active');
+  }
+}
+
+function alternarGavetaFiltros(){
+  document.getElementById('filtersDrawer').classList.toggle('open');
+}
+document.getElementById('filtersToggleBtn').addEventListener('click', alternarGavetaFiltros);
+document.getElementById('filtersDrawerClose').addEventListener('click', alternarGavetaFiltros);
 
 function renderAdminLista(usuarios){
   var el = document.getElementById('adm_lista');
