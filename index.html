@@ -240,11 +240,22 @@
   .pill.aguardando{background:var(--warning-dim);color:var(--warning);}
   .pill.aguardando::before{background:var(--warning);}
 
+  .approve-wrap{position:relative;display:inline-block;}
   .approve-btn{
     background:var(--chart);color:#fff;border:none;font:700 10.5px var(--sans);
     padding:4px 10px;border-radius:20px;cursor:pointer;white-space:nowrap;
   }
   .approve-btn:hover{background:var(--chart-soft);}
+  .approve-menu{
+    display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:130px;
+    background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);z-index:20;padding:6px;
+  }
+  .approve-wrap.open .approve-menu{display:block;}
+  .approve-opt{padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .approve-opt:hover{background:var(--surface-3);}
+  .approve-opt[data-value="Aprovado"]{color:var(--positive);}
+  .approve-opt[data-value="Cancelado"]{color:var(--critical);}
 
   .entry-panel{display:none;margin-bottom:14px;}
   .entry-panel.open{display:block;flex:none;}
@@ -430,15 +441,6 @@
             <option value="Genivaldo">Genivaldo</option>
           </select>
         </div>
-        <div class="efield" data-field-key="status">
-          <label>Status <span class="req">*</span></label>
-          <select id="nf_status" required>
-            <option value="" selected disabled>Selecione</option>
-            <option value="Aguardando">Aguardando</option>
-            <option value="Pago">Pago</option>
-            <option value="Cancelado">Cancelado</option>
-          </select>
-        </div>
         <div class="efield efield-full" data-field-key="obs">
           <label>Observação</label>
           <textarea id="nf_obs" placeholder="Opcional"></textarea>
@@ -511,7 +513,7 @@
           <label>Status</label>
           <select id="f_status">
             <option value="">Todos</option>
-            <option value="Aguardando">Aguardando</option>
+            <option value="Lançado">Lançado</option>
             <option value="Pago">Pago</option>
             <option value="Cancelado">Cancelado</option>
           </select>
@@ -677,7 +679,7 @@ function graphRowToRow(v, rowIndex){
     anexo: v[5] || '',
     obs: v[6] || '',
     chequeDe: v[7] || '',
-    status: v[8] || 'Aguardando',
+    status: v[8] || 'Lançado',
     banco: v[9] || '',
     cooperativa: v[10] || '',
     conta: v[11] || '',
@@ -992,7 +994,6 @@ function abrirParaEdicao(rawId){
   document.getElementById('nf_docAnexo').value = '';
   document.getElementById('nf_obs').value = entry.obs || '';
   document.getElementById('nf_chequeDe').value = entry.chequeDe || 'Urbano';
-  document.getElementById('nf_status').value = entry.status || 'Aguardando';
   setFormMode(true);
   togglePanel(true);
 }
@@ -1031,7 +1032,7 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
     submitBtn.textContent = on ? 'Enviando...' : submitBtnOriginalText;
   }
   try {
-    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor','nf_chequeDe','nf_status'];
+    var required = ['nf_dataEnvio','nf_numero','nf_favorecido','nf_valor','nf_chequeDe'];
     var ok = true;
     required.forEach(function(id){
       var el = document.getElementById(id);
@@ -1062,6 +1063,7 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var isEditing = editingId !== null;
         var existing = isEditing ? DATA.find(function(e){ return e.id === editingId; }) : null;
         if (isEditing && !existing) { showToast('Cheque não encontrado (pode já ter sido removido).'); editingId = null; setFormMode(false); return; }
+        var status = isEditing ? (existing.status || 'Lançado') : 'Lançado';
 
         var token = await getToken();
         var linhasAtuaisGraph = isEditing ? null : await buscarLinhasAtuaisGraph(token);
@@ -1073,7 +1075,6 @@ document.getElementById('entryForm').addEventListener('submit', function(ev){
         var valor = parseBRL(document.getElementById('nf_valor').value);
         var obs = document.getElementById('nf_obs').value.trim();
         var chequeDe = document.getElementById('nf_chequeDe').value;
-        var status = document.getElementById('nf_status').value;
 
         var anexoUrl = isEditing ? (existing.anexo || '') : '';
         if (docFile) anexoUrl = await subirAnexo(token, docFile, novoId);
@@ -1132,15 +1133,23 @@ function anexoCellHtml(r){
     : '<span class="attach off"><svg viewBox="0 0 24 24" fill="none"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.83 18.4a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 }
 function statusCellHtml(r){
-  var st = r.status || 'Aguardando';
+  var st = r.status || 'Lançado';
   var cls = st === 'Pago' ? 'pago' : (st === 'Cancelado' ? 'cancelado' : 'aguardando');
   return '<span class="pill '+cls+'">'+st+'</span>';
 }
 
 function aprovacaoCellHtml(r){
-  var aprovado = r.aprovacao === 'Aprovado';
-  if (aprovado) return '<span class="pill pago">Aprovado</span>';
-  if (ehDono()) return '<button type="button" class="approve-btn" data-rawid="'+r.id+'" title="Aprovar este lançamento">Aprovar</button>';
+  var st = r.aprovacao || 'Pendente';
+  if (st === 'Aprovado') return '<span class="pill pago">Aprovado</span>';
+  if (st === 'Cancelado') return '<span class="pill cancelado">Cancelado</span>';
+  if (ehDono()) {
+    return '<div class="approve-wrap" data-rawid="'+r.id+'">'
+      + '<button type="button" class="approve-btn" title="Decidir aprovação deste lançamento">Aprovar</button>'
+      + '<div class="approve-menu">'
+      + '<div class="approve-opt" data-value="Aprovado">Aprovado</div>'
+      + '<div class="approve-opt" data-value="Cancelado">Cancelado</div>'
+      + '</div></div>';
+  }
   return '<span class="pill aguardando">Pendente</span>';
 }
 
@@ -1166,7 +1175,7 @@ var COLUMNS = {
   anexo:       { label:'Cheque Anexo', width:100, render: anexoCellHtml, exportValue: function(r){ return r.anexo || ''; } },
   obs:         { label:'Observação', width:200, titleAttr: function(r){ return (r.obs||'').replace(/"/g,'&quot;'); }, render: function(r){ return r.obs || ''; } },
   chequeDe:    { label:'Cheque De:', width:120, render: function(r){ return r.chequeDe || ''; } },
-  status:      { label:'Status', width:120, render: statusCellHtml, exportValue: function(r){ return r.status || 'Aguardando'; } },
+  status:      { label:'Status', width:120, render: statusCellHtml, exportValue: function(r){ return r.status || 'Lançado'; } },
   aprovacao:   { label:'Aprovação', width:130, render: aprovacaoCellHtml, exportValue: function(r){ return r.aprovacao || 'Pendente'; } },
   confronto:   { label:'Confronto Cheque', width:150, render: confrontoChequeCellHtml, exportValue: function(r){ return confrontoCheque(r).texto; } },
   banco:        { label:'Banco', width:160, render: function(r){ return r.banco || ''; } },
@@ -1493,26 +1502,37 @@ function render(){
         });
       });
     });
-    body.querySelectorAll('.approve-btn').forEach(function(btn){
-      btn.addEventListener('click', async function(){
-        var rawId = Number(btn.getAttribute('data-rawid'));
-        var row = DATA.find(function(r){ return r.id === rawId; });
-        if (!row) { showToast('Cheque não encontrado.'); return; }
-        btn.disabled = true;
-        try {
-          var token = await getToken();
-          var linhas = await buscarLinhasAtuaisGraph(token);
-          var match = linhas.find(function(l){ return l.values[0][0] === rawId; });
-          if (!match) throw new Error('Cheque não encontrado na planilha.');
-          var v = match.values[0].slice();
-          v[22] = 'Aprovado';
-          await atualizarLinhaGraph(token, match.index, v);
-          showToast('Cheque #' + rawId + ' aprovado.');
-          await carregarDados();
-        } catch (err) {
-          showToast('Erro ao aprovar: ' + (err && err.message ? err.message : err));
-          btn.disabled = false;
-        }
+    body.querySelectorAll('.approve-wrap').forEach(function(wrap){
+      var btn = wrap.querySelector('.approve-btn');
+      btn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        var wasOpen = wrap.classList.contains('open');
+        document.querySelectorAll('.approve-wrap.open').forEach(function(w){ w.classList.remove('open'); });
+        if (!wasOpen) wrap.classList.add('open');
+      });
+      wrap.querySelectorAll('.approve-opt').forEach(function(opt){
+        opt.addEventListener('click', async function(ev){
+          ev.stopPropagation();
+          wrap.classList.remove('open');
+          var rawId = Number(wrap.getAttribute('data-rawid'));
+          var decisao = opt.getAttribute('data-value');
+          var row = DATA.find(function(r){ return r.id === rawId; });
+          if (!row) { showToast('Cheque não encontrado.'); return; }
+          try {
+            var token = await getToken();
+            var linhas = await buscarLinhasAtuaisGraph(token);
+            var match = linhas.find(function(l){ return l.values[0][0] === rawId; });
+            if (!match) throw new Error('Cheque não encontrado na planilha.');
+            var v = match.values[0].slice();
+            v[22] = decisao;
+            v[8] = (decisao === 'Aprovado') ? 'Pago' : 'Cancelado';
+            await atualizarLinhaGraph(token, match.index, v);
+            showToast('Cheque #' + rawId + ': ' + decisao + '.');
+            await carregarDados();
+          } catch (err) {
+            showToast('Erro ao atualizar: ' + (err && err.message ? err.message : err));
+          }
+        });
       });
     });
   }
@@ -1810,7 +1830,7 @@ function setupFilterResize(){
   });
 }
 
-var ENTRY_FIELD_KEYS = ['dataEnvio','numero','favorecido','valor','docAnexo','chequeDe','status','obs'];
+var ENTRY_FIELD_KEYS = ['dataEnvio','numero','favorecido','valor','docAnexo','chequeDe','obs'];
 function loadEntryFieldOrder(){
   try {
     var saved = JSON.parse(localStorage.getItem('qc_entryfield_order_v1'));
@@ -1929,6 +1949,7 @@ document.getElementById('columnsManageBtn').addEventListener('click', function(e
 document.getElementById('columnsManageMenu').addEventListener('click', function(ev){ ev.stopPropagation(); });
 document.addEventListener('click', function(){
   document.getElementById('columnsManageWrap').classList.remove('open');
+  document.querySelectorAll('.approve-wrap.open').forEach(function(w){ w.classList.remove('open'); });
 });
 document.addEventListener('keydown', function(ev){
   if (ev.key === 'Escape') document.getElementById('columnsManageWrap').classList.remove('open');
