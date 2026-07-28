@@ -518,6 +518,15 @@
             <option value="Cancelado">Cancelado</option>
           </select>
         </div>
+        <div class="filter-field" data-filter-key="aprovacao">
+          <label>Aprovação</label>
+          <select id="f_aprovacao">
+            <option value="">Todos</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Aprovado">Aprovado</option>
+            <option value="Cancelado">Cancelado</option>
+          </select>
+        </div>
         <div class="filter-field" data-filter-key="mesAno">
           <label>Mês/Ano</label>
           <select id="f_mesAno">
@@ -1414,13 +1423,15 @@ function filtrados(){
   var de = document.getElementById('f_de').value;
   var chequeDe = document.getElementById('f_chequeDe').value;
   var status = document.getElementById('f_status').value;
+  var aprovacao = document.getElementById('f_aprovacao').value;
   var mesAno = document.getElementById('f_mesAno').value;
   return DATA.filter(function(r){
     if (busca && r.favorecido !== busca) return false;
     if (buscaNumero && r.numero !== buscaNumero) return false;
     if (de && r.dataEnvio && r.dataEnvio < de) return false;
     if (chequeDe && r.chequeDe !== chequeDe) return false;
-    if (status && (r.status || 'Aguardando') !== status) return false;
+    if (status && (r.status || 'Lançado') !== status) return false;
+    if (aprovacao && (r.aprovacao || 'Pendente') !== aprovacao) return false;
     if (mesAno && (!r.dataEnvio || r.dataEnvio.slice(0,7) !== mesAno)) return false;
     return true;
   });
@@ -1559,6 +1570,7 @@ document.getElementById('f_numero').addEventListener('change', render);
 document.getElementById('f_de').addEventListener('change', render);
 document.getElementById('f_chequeDe').addEventListener('change', render);
 document.getElementById('f_status').addEventListener('change', render);
+document.getElementById('f_aprovacao').addEventListener('change', render);
 document.getElementById('f_mesAno').addEventListener('change', render);
 document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_busca').value = '';
@@ -1566,6 +1578,7 @@ document.getElementById('clearBtn').addEventListener('click', function(){
   document.getElementById('f_de').value = '';
   document.getElementById('f_chequeDe').value = '';
   document.getElementById('f_status').value = '';
+  document.getElementById('f_aprovacao').value = '';
   document.getElementById('f_mesAno').value = '';
   render();
 });
@@ -1577,6 +1590,7 @@ function atualizarBadgeFiltros(){
     document.getElementById('f_de').value,
     document.getElementById('f_chequeDe').value,
     document.getElementById('f_status').value,
+    document.getElementById('f_aprovacao').value,
     document.getElementById('f_mesAno').value
   ];
   var ativos = valores.filter(function(v){ return !!v; }).length;
@@ -1730,7 +1744,7 @@ document.getElementById('semAcessoSairBtn').addEventListener('click', sair);
 document.getElementById('loginBtn').addEventListener('click', entrar);
 document.getElementById('logoutBtn').addEventListener('click', sair);
 
-var FILTER_KEYS = ['favorecido','numero','pagamento','chequeDe','status','mesAno'];
+var FILTER_KEYS = ['favorecido','numero','pagamento','chequeDe','status','aprovacao','mesAno'];
 function loadFilterOrder(){
   try {
     var saved = JSON.parse(localStorage.getItem('qc_filter_order_v1'));
